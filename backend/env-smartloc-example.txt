@@ -1,0 +1,17 @@
+# MySQL connection for database "smartloc"
+# Copy these lines into your Laravel project's .env file (or merge with existing DB_* variables)
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=smartloc
+DB_USERNAME=root
+DB_PASSWORD=
+
+# Optional: use socket on Windows/Linux if needed
+# DB_SOCKET=
+
+# Optional: if MySQL is on another host
+# DB_HOST=localhost
+# DB_USERNAME=your_mysql_user
+# DB_PASSWORD=your_mysql_password
