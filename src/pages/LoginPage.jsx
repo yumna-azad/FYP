@@ -6,8 +6,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
-const HERO_IMAGE =
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Sri_Lanka,_Tea_plantations_near_Nuwara_Eliya,_Tea_estate.jpg?width=1800";
+const HERO_IMAGE = "/images/hero/ne-mist.jpg";
 
 const ease = [0.22, 1, 0.36, 1];
 

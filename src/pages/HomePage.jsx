@@ -32,8 +32,7 @@ import { getSocialMediaLinks, getWhatsAppLink } from "../lib/socialMedia.js";
 
 const MotionBox = motion(Box);
 
-const HERO_IMAGE =
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Sri_Lanka,_Tea_plantations_near_Nuwara_Eliya,_Tea_estate.jpg?width=2400";
+const HERO_IMAGE = "/images/hero/ne-tea.jpg";
 
 const ease = [0.22, 1, 0.36, 1];
 
