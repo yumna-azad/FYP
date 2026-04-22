@@ -15,12 +15,13 @@ class LocationFinderSubmission extends Model
     protected $fillable = [
         'user_id',
         'business_type',
-        'proximity',
-        'traffic',
-        'competition',
-        'internet_coverage',
         'land_intent',
-        'amount',
+        'budget',
+        'preferred_area',
+    ];
+
+    protected $casts = [
+        'budget' => 'integer',
     ];
 
     public function user(): BelongsTo

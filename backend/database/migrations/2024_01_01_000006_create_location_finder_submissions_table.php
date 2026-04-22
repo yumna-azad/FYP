@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
-     * Stores user inputs from the Location Finder so admin can see them.
+     * Simplified submissions schema matching the current Dashboard form:
+     *   Business Type (required) · Land (rent/purchase) · Budget (LKR) · Preferred Area (optional)
      */
     public function up(): void
     {
@@ -16,19 +16,16 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('business_type');
-            $table->string('proximity');
-            $table->string('traffic');
-            $table->string('competition');
-            $table->string('internet_coverage');
             $table->string('land_intent'); // rent | purchase
-            $table->string('amount');
+            $table->unsignedBigInteger('budget');
+            $table->string('preferred_area')->nullable();
             $table->timestamps();
+
+            $table->index('user_id');
+            $table->index(['business_type', 'land_intent']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('location_finder_submissions');

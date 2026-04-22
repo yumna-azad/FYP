@@ -93,12 +93,9 @@ export const adminAPI = {
 export async function submitLocationFinder(payload) {
   const body = {
     business_type: payload.businessType,
-    proximity: payload.proximity,
-    traffic: payload.traffic,
-    competition: payload.competition,
-    internet_coverage: payload.internetCoverage,
     land_intent: payload.landIntent,
-    amount: String(payload.amount),
+    budget: Number(payload.amount) || 0,
+    preferred_area: payload.preferredArea || null,
   };
   return apiRequest("/api/submissions", { method: "POST", body: JSON.stringify(body) });
 }

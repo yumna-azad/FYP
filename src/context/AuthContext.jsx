@@ -5,11 +5,9 @@ const USER_KEY = "smartloc_user";
 const PROFILE_PIC_KEY = "smartloc_profile_pic";
 const REGISTERED_USERS_KEY = "smartloc_registered_users"; // Store registered users in mock mode
 
-// NOTE: Temporarily disable Laravel API for auth (register/login/change password)
-// so that everything works fully in mock mode using localStorage only.
-// When you are ready to use Laravel again, restore this line to:
-//   const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
-const API_BASE = "";
+// Laravel API base. Set VITE_API_URL in .env (defaults to http://localhost:8000).
+// If the env var is empty, the code falls back to mock mode (localStorage only).
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 const AuthContext = createContext(null);
 
