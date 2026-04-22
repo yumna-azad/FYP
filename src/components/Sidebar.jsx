@@ -1,29 +1,21 @@
 import React from "react";
+import { Box, Drawer, Stack, Typography } from "@mui/material";
 import {
-  Box,
-  Drawer,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Toolbar,
-  Typography,
-} from "@mui/material";
-import MapIcon from "@mui/icons-material/Map";
-import DashboardIcon from "@mui/icons-material/SpaceDashboard";
-import InsightsIcon from "@mui/icons-material/Insights";
-import PersonIcon from "@mui/icons-material/PersonOutline";
-import CardMembershipIcon from "@mui/icons-material/CardMembership";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
-import EventIcon from "@mui/icons-material/Event";
-import ShareIcon from "@mui/icons-material/Share";
-import EmailIcon from "@mui/icons-material/Email";
-import PeopleIcon from "@mui/icons-material/People";
-import StoreIcon from "@mui/icons-material/Store";
-import PlaceIcon from "@mui/icons-material/Place";
-import TimelineIcon from "@mui/icons-material/Timeline";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import BarChartIcon from "@mui/icons-material/BarChart";
+  Home,
+  LayoutDashboard,
+  Compass,
+  User,
+  Shield,
+  Users,
+  Store,
+  MapPin,
+  LineChart,
+  Receipt,
+  BarChart3,
+  CalendarDays,
+  Share2,
+  Mail,
+} from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
@@ -36,56 +28,43 @@ export default function Sidebar() {
   const [searchParams] = useSearchParams();
   const { isAdmin } = useAuth();
   const { mode } = useTheme();
+  const isDark = mode === "dark";
 
   const isAdminPage = location.pathname.startsWith("/admin");
   const onAdminDashboard = location.pathname === "/admin";
   const tabParam = searchParams.get("tab") || "overview";
 
+  const iconProps = { size: 16, strokeWidth: 1.5 };
+
   const adminNavItems = [
-    { label: "Dashboard", icon: <AdminPanelSettingsIcon />, path: "/admin", tab: "overview" },
-    { label: "Add User / Users", icon: <PeopleIcon />, path: "/admin", tab: "users" },
-    { label: "Add Business Type", icon: <StoreIcon />, path: "/admin", tab: "business" },
-    { label: "Add Location", icon: <PlaceIcon />, path: "/admin", tab: "locations" },
-    { label: "User Inputs", icon: <TimelineIcon />, path: "/admin", tab: "inputs" },
-    { label: "Transaction History", icon: <ReceiptLongIcon />, path: "/admin", tab: "transactions" },
-    { label: "Analytics", icon: <BarChartIcon />, path: "/admin", tab: "analytics" },
-    { label: "Schedule Meeting", icon: <EventIcon />, path: "/admin/meetings", tab: null },
-    { label: "Social Media", icon: <ShareIcon />, path: "/admin/social-media", tab: null },
-    { label: "Mail", icon: <EmailIcon />, path: "/admin/mail", tab: null },
+    { label: "Dashboard", path: "/admin", tab: "overview", icon: <Shield {...iconProps} /> },
+    { label: "Users", path: "/admin", tab: "users", icon: <Users {...iconProps} /> },
+    { label: "Business types", path: "/admin", tab: "business", icon: <Store {...iconProps} /> },
+    { label: "Locations", path: "/admin", tab: "locations", icon: <MapPin {...iconProps} /> },
+    { label: "User inputs", path: "/admin", tab: "inputs", icon: <LineChart {...iconProps} /> },
+    { label: "Transactions", path: "/admin", tab: "transactions", icon: <Receipt {...iconProps} /> },
+    { label: "Analytics", path: "/admin", tab: "analytics", icon: <BarChart3 {...iconProps} /> },
+    { label: "Meetings", path: "/admin/meetings", tab: null, icon: <CalendarDays {...iconProps} /> },
+    { label: "Social", path: "/admin/social-media", tab: null, icon: <Share2 {...iconProps} /> },
+    { label: "Mail", path: "/admin/mail", tab: null, icon: <Mail {...iconProps} /> },
   ];
 
   const userNavItems = [
-    { label: "Home", icon: <MapIcon />, path: "/" },
-    { label: "Input dashboard", icon: <DashboardIcon />, path: "/dashboard" },
-    { label: "Recommendations", icon: <InsightsIcon />, path: "/recommendations" },
-    { label: "Profile", icon: <PersonIcon />, path: "/profile" },
-    { label: "Subscribe to Pro", icon: <CardMembershipIcon />, path: "/subscribe" },
-    ...(isAdmin && !isAdminPage ? [{ label: "Admin", icon: <AdminPanelSettingsIcon />, path: "/admin", tab: null }] : []),
+    { label: "Home", path: "/", icon: <Home {...iconProps} /> },
+    { label: "Dashboard", path: "/dashboard", icon: <LayoutDashboard {...iconProps} /> },
+    { label: "Recommendations", path: "/recommendations", icon: <Compass {...iconProps} /> },
+    { label: "Profile", path: "/profile", icon: <User {...iconProps} /> },
+    ...(isAdmin && !isAdminPage
+      ? [{ label: "Admin", path: "/admin", tab: null, icon: <Shield {...iconProps} /> }]
+      : []),
   ];
 
   const navItems = isAdminPage ? adminNavItems : userNavItems;
 
-  const baseItemSx = {
-    mx: 1.5,
-    mb: 0.25,
-    borderRadius: 1.5,
-    py: 1,
-    transition: "background-color 0.15s ease, border-color 0.15s ease",
-    "&:hover": {
-      bgcolor: mode === "dark" ? "rgba(13, 148, 136, 0.08)" : "rgba(13, 148, 136, 0.06)",
-      "& .MuiListItemIcon-root": { color: "primary.main" },
-      "& .MuiListItemText-primary": { color: "primary.main" },
-    },
-  };
-
-  const selectedItemSx = {
-    ...baseItemSx,
-    borderLeft: "3px solid",
-    borderColor: "primary.main",
-    bgcolor: mode === "dark" ? "rgba(13, 148, 136, 0.12)" : "rgba(13, 148, 136, 0.08)",
-    "& .MuiListItemIcon-root": { color: "primary.main" },
-    "& .MuiListItemText-primary": { fontWeight: 600 },
-  };
+  const ink = isDark ? "#f5f3ee" : "#0a0a0a";
+  const inkSoft = isDark ? "rgba(245,243,238,0.5)" : "rgba(10,10,10,0.5)";
+  const hair = isDark ? "rgba(245,243,238,0.08)" : "rgba(10,10,10,0.08)";
+  const bg = isDark ? "#0b0f0e" : "#faf8f3";
 
   return (
     <Box component="nav" sx={{ width: drawerWidth, flexShrink: 0, display: { xs: "none", md: "block" } }}>
@@ -95,52 +74,124 @@ export default function Sidebar() {
           "& .MuiDrawer-paper": {
             width: drawerWidth,
             boxSizing: "border-box",
-            borderRight: "1px solid",
-            borderColor: "divider",
-            bgcolor: "background.paper",
+            borderRight: `1px solid ${hair}`,
+            bgcolor: bg,
             boxShadow: "none",
+            display: "flex",
+            flexDirection: "column",
           },
         }}
         open
       >
-        <Toolbar sx={{ px: 2.5, py: 2 }}>
+        {/* Wordmark */}
+        <Box sx={{ px: 3, pt: 4, pb: 6 }}>
           <Typography
-            variant="h6"
-            fontWeight={700}
-            color="primary"
-            component="span"
+            className="font-display"
             onClick={() => navigate("/")}
-            sx={{ cursor: "pointer", fontSize: "1.1rem" }}
+            sx={{
+              cursor: "pointer",
+              fontSize: "1.625rem",
+              letterSpacing: "-0.03em",
+              color: ink,
+              lineHeight: 1,
+            }}
           >
-            SmartLoc
+            Smart<Box component="em" sx={{ fontStyle: "italic", color: inkSoft, fontWeight: 400 }}>Loc</Box>
           </Typography>
-        </Toolbar>
-        {isAdminPage && (
-          <Typography variant="overline" sx={{ px: 2.5, pt: 0.5, pb: 0.5, display: "block", color: "text.secondary", letterSpacing: 1 }}>
-            Admin
+          <Typography
+            sx={{
+              mt: 1,
+              fontSize: 10,
+              letterSpacing: "0.3em",
+              textTransform: "uppercase",
+              color: inkSoft,
+              fontWeight: 500,
+            }}
+          >
+            {isAdminPage ? "Admin" : "Nuwara Eliya"}
           </Typography>
-        )}
-        <List sx={{ px: 1, py: 0.5 }}>
+        </Box>
+
+        {/* Section label */}
+        <Box sx={{ px: 3, pb: 2 }}>
+          <Typography
+            sx={{
+              fontSize: 10,
+              letterSpacing: "0.3em",
+              textTransform: "uppercase",
+              color: inkSoft,
+              fontWeight: 500,
+            }}
+          >
+            {isAdminPage ? "Manage" : "Navigate"}
+          </Typography>
+        </Box>
+
+        {/* Nav */}
+        <Stack component="ul" sx={{ px: 3, m: 0, listStyle: "none", gap: 0 }}>
           {navItems.map((item) => {
             const isSelected =
               item.tab != null
                 ? onAdminDashboard && tabParam === item.tab
                 : location.pathname === item.path;
             return (
-              <ListItemButton
+              <Box
+                component="li"
                 key={item.path + (item.tab ?? "")}
-                selected={false}
-                onClick={() => navigate(item.tab != null ? `${item.path}?tab=${item.tab}` : item.path)}
-                sx={isSelected ? selectedItemSx : baseItemSx}
+                onClick={() =>
+                  navigate(item.tab != null ? `${item.path}?tab=${item.tab}` : item.path)
+                }
+                sx={{
+                  cursor: "pointer",
+                  py: 1.15,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.5,
+                  color: isSelected ? ink : inkSoft,
+                  fontSize: "0.9375rem",
+                  fontWeight: isSelected ? 500 : 400,
+                  position: "relative",
+                  transition: "color 0.2s ease",
+                  "&:hover": { color: ink },
+                  "&:hover .marker": { opacity: isSelected ? 1 : 0.35 },
+                }}
               >
-                <ListItemIcon sx={{ minWidth: 36, color: isSelected ? "primary.main" : "inherit" }}>
+                <Box
+                  className="marker"
+                  sx={{
+                    position: "absolute",
+                    left: -12,
+                    width: 6,
+                    height: 1,
+                    bgcolor: ink,
+                    opacity: isSelected ? 1 : 0,
+                    transition: "opacity 0.2s ease",
+                  }}
+                />
+                <Box
+                  sx={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    color: "inherit",
+                    opacity: isSelected ? 0.9 : 0.6,
+                    transition: "opacity 0.2s ease",
+                  }}
+                >
                   {item.icon}
-                </ListItemIcon>
-                <ListItemText primary={item.label} primaryTypographyProps={{ variant: "body2", fontWeight: isSelected ? 600 : 400 }} />
-              </ListItemButton>
+                </Box>
+                <Box component="span">{item.label}</Box>
+              </Box>
             );
           })}
-        </List>
+        </Stack>
+
+        {/* Footer */}
+        <Box sx={{ flex: 1 }} />
+        <Box sx={{ px: 3, py: 3, borderTop: `1px solid ${hair}` }}>
+          <Typography sx={{ fontSize: 11, color: inkSoft, lineHeight: 1.6 }}>
+            Location intelligence<br />for the hill country.
+          </Typography>
+        </Box>
       </Drawer>
     </Box>
   );

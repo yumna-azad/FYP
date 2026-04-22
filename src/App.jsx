@@ -14,7 +14,6 @@ import RegisterPage from "./pages/RegisterPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import RecommendationsPage from "./pages/RecommendationsPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
-import SubscribePage from "./pages/SubscribePage.jsx";
 import AdminPage from "./pages/AdminPage.jsx";
 import AdminMeetingsPage from "./pages/AdminMeetingsPage.jsx";
 import AdminSocialMediaPage from "./pages/AdminSocialMediaPage.jsx";
@@ -42,7 +41,6 @@ export default function App() {
                   <Route path="/dashboard" element={<ProtectedRoute><ErrorBoundary><DashboardPage /></ErrorBoundary></ProtectedRoute>} />
                   <Route path="/recommendations" element={<ProtectedRoute><ErrorBoundary><RecommendationsPage /></ErrorBoundary></ProtectedRoute>} />
                   <Route path="/profile" element={<ProtectedRoute><ErrorBoundary><ProfilePage /></ErrorBoundary></ProtectedRoute>} />
-                  <Route path="/subscribe" element={<ProtectedRoute><ErrorBoundary><SubscribePage /></ErrorBoundary></ProtectedRoute>} />
                   <Route path="/admin" element={<ProtectedRoute requireAdmin><ErrorBoundary><AdminPage /></ErrorBoundary></ProtectedRoute>} />
                   <Route path="/admin/meetings" element={<ProtectedRoute requireAdmin><ErrorBoundary><AdminMeetingsPage /></ErrorBoundary></ProtectedRoute>} />
                   <Route path="/admin/social-media" element={<ProtectedRoute requireAdmin><ErrorBoundary><AdminSocialMediaPage /></ErrorBoundary></ProtectedRoute>} />

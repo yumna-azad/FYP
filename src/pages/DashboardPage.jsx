@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import {
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -35,32 +36,49 @@ const defaultBusinessTypeOptions = [
   { value: "hotel", label: "Hotel" },
 ];
 
-const proximityOptions = [
-  { value: "high", label: "High (< 500m)" },
-  { value: "medium", label: "Medium (500m - 1km)" },
-  { value: "low", label: "Low (1km+)" }
+const nuwaraEliyaAreas = [
+  "Town Centre / Main Street",
+  "Gregory Lake Front",
+  "Hakgala Road",
+  "Pedro / Hill Club Area",
+  "Nanu Oya",
+  "Ambewela",
+  "Kandapola",
+  "Glencairn",
+  "Hawa Eliya",
+  "Lover's Leap",
+  "Seetha Eliya",
+  "Tea estates belt",
 ];
 
-const trafficOptions = [
-  { value: "very-high", label: "Very High (10,000+ daily)" },
-  { value: "high", label: "High (5,000-10,000 daily)" },
-  { value: "moderate", label: "Moderate (1,000-5,000 daily)" },
-  { value: "low", label: "Low (< 1,000 daily)" }
-];
+// Budget ranges derived from smartloc_raw_data_VERIFIED.xlsx → Property_Listings sheet
+// (n=713, covers LankaPropertyWeb, ikman.lk, House.lk 2025-2026 listings for Nuwara Eliya)
+// Rent = monthly_price_lkr grouped by property_type; Purchase = total_price_lkr.
+// Ranges rounded to the nearest realistic figure, slightly below observed min and above observed max.
+const BUDGET_RANGES_BY_TYPE = {
+  cafe:             { rent: { min: 45_000,  max: 400_000 },   buy: { min: 60_000_000,  max: 275_000_000 } },
+  restaurant:       { rent: { min: 45_000,  max: 400_000 },   buy: { min: 60_000_000,  max: 275_000_000 } },
+  retail_shop:      { rent: { min: 90_000,  max: 260_000 },   buy: { min: 34_000_000,  max: 250_000_000 } },
+  wellness_center:  { rent: { min: 30_000,  max: 270_000 },   buy: { min: 22_000_000,  max: 300_000_000 } },
+  hotel:            { rent: { min: 280_000, max: 500_000 },   buy: { min: 38_000_000,  max: 265_000_000 } },
+};
 
-const competitionOptions = [
-  { value: "minimal", label: "Minimal (0-2 competitors)" },
-  { value: "low", label: "Low (3-5 competitors)" },
-  { value: "moderate", label: "Moderate (6-10 competitors)" },
-  { value: "any", label: "Any level" }
-];
+// Fallback when no business type selected — spans the entire commercial data range
+const DEFAULT_BUDGET_RANGE = {
+  rent: { min: 10_000,    max: 500_000 },
+  buy:  { min: 2_000_000, max: 300_000_000 },
+};
 
-const internetCoverageOptions = [
-  { value: "high", label: "High (Fiber/High-Speed)" },
-  { value: "medium", label: "Medium (Standard Broadband)" },
-  { value: "low", label: "Low (Basic Internet)" },
-  { value: "any", label: "Any coverage" }
-];
+function getBudgetLimits(businessType, landIntent) {
+  const range =
+    BUDGET_RANGES_BY_TYPE[businessType] || DEFAULT_BUDGET_RANGE;
+  const bucket = landIntent === "rent" ? range.rent : range.buy;
+  return {
+    min: bucket.min,
+    max: bucket.max,
+    label: landIntent === "rent" ? "rent / month" : "purchase",
+  };
+}
 
 // Fallback locations (renamed from sampleLocations)
 const defaultLocationsForMap = [
@@ -100,13 +118,11 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const useMock = useMockData();
   const [businessType, setBusinessType] = useState("");
-  const [proximity, setProximity] = useState("");
-  const [traffic, setTraffic] = useState("");
-  const [competition, setCompetition] = useState("");
-  const [internetCoverage, setInternetCoverage] = useState("");
+  const [preferredArea, setPreferredArea] = useState("");
   const [landIntent, setLandIntent] = useState("rent"); // "rent" | "purchase"
   const [amount, setAmount] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
   const [locations, setLocations] = useState([]);
@@ -174,10 +190,7 @@ export default function DashboardPage() {
         setHasSubmitted(true);
         // Pre-fill form with submitted data
         setBusinessType(data.businessType || "");
-        setProximity(data.proximity || "");
-        setTraffic(data.traffic || "");
-        setCompetition(data.competition || "");
-        setInternetCoverage(data.internetCoverage || "");
+        setPreferredArea(data.preferredArea || "");
         setLandIntent(data.landIntent || "rent");
         setAmount(data.amount || "");
       } catch (e) {
@@ -186,13 +199,37 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // Data-driven: pulls from Property_Listings (n=713) per business type × land intent
+  const budgetLimits = getBudgetLimits(businessType, landIntent);
+
+  const amountNum = Number(amount);
+  const amountTouched = String(amount).trim() !== "";
+  const amountInvalid = amountTouched && (Number.isNaN(amountNum) || amountNum < budgetLimits.min || amountNum > budgetLimits.max);
+  const amountErrorMsg = !amountTouched
+    ? ""
+    : Number.isNaN(amountNum)
+      ? "Budget must be a number."
+      : amountNum < budgetLimits.min
+        ? `Too low — ${budgetLimits.label} in Nuwara Eliya starts around LKR ${budgetLimits.min.toLocaleString()}.`
+        : amountNum > budgetLimits.max
+          ? `Too high — the maximum ${budgetLimits.label} observed in Nuwara Eliya is LKR ${budgetLimits.max.toLocaleString()}.`
+          : "";
+
+  const businessTypeInvalid = showErrors && !businessType;
+
   const allFilled =
-    !!businessType && !!proximity && !!traffic && !!competition && !!internetCoverage && !!String(amount).trim() && Number(amount) > 0;
+    !!businessType &&
+    !!landIntent &&
+    amountTouched &&
+    !amountInvalid;
 
   const handleGenerateRecommendations = async () => {
-    if (!allFilled) return;
+    if (!allFilled) {
+      setShowErrors(true);
+      return;
+    }
     setIsAnalyzing(true);
-    const payload = { businessType, proximity, traffic, competition, internetCoverage, landIntent, amount };
+    const payload = { businessType, preferredArea, landIntent, amount };
     sessionStorage.setItem(DASHBOARD_SUBMITTED_KEY, JSON.stringify(payload));
 
     // When Laravel + MySQL are connected: save to DB so admin sees it automatically
@@ -266,16 +303,8 @@ export default function DashboardPage() {
                         <Chip label={businessTypeOptions.find(b => b.value === submittedData.businessType)?.label || submittedData.businessType} size="small" sx={{ mt: 0.5 }} />
                       </Box>
                       <Box>
-                        <Typography variant="caption" color="text.secondary">Tourist Area Proximity</Typography>
-                        <Chip label={proximityOptions.find(p => p.value === submittedData.proximity)?.label || submittedData.proximity} size="small" sx={{ mt: 0.5 }} />
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Foot Traffic</Typography>
-                        <Chip label={trafficOptions.find(t => t.value === submittedData.traffic)?.label || submittedData.traffic} size="small" sx={{ mt: 0.5 }} />
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Competition Level</Typography>
-                        <Chip label={competitionOptions.find(c => c.value === submittedData.competition)?.label || submittedData.competition} size="small" sx={{ mt: 0.5 }} />
+                        <Typography variant="caption" color="text.secondary">Land</Typography>
+                        <Chip label={submittedData.landIntent === "rent" ? "Rent" : "Purchase"} size="small" sx={{ mt: 0.5 }} />
                       </Box>
                       <Box>
                         <Typography variant="caption" color="text.secondary">
@@ -283,6 +312,12 @@ export default function DashboardPage() {
                         </Typography>
                         <Typography variant="body1" fontWeight={600} sx={{ mt: 0.5 }}>
                           LKR {Number(submittedData.amount).toLocaleString()}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Preferred Area</Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                          {submittedData.preferredArea || "Any area"}
                         </Typography>
                       </Box>
                     </Stack>
@@ -358,11 +393,11 @@ export default function DashboardPage() {
               </Box>
               <CardContent sx={{ pt: 1, "&:last-child": { pb: 2.5 } }}>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Business Type</InputLabel>
+                  <FormControl fullWidth size="small" error={businessTypeInvalid}>
+                    <InputLabel>Business Type *</InputLabel>
                     <Select
                       value={businessType}
-                      label="Business Type"
+                      label="Business Type *"
                       onChange={(e) => setBusinessType(e.target.value)}
                     >
                       {businessTypeOptions.map((type) => (
@@ -371,71 +406,16 @@ export default function DashboardPage() {
                         </MenuItem>
                       ))}
                     </Select>
-                  </FormControl>
-
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Tourist Area Proximity</InputLabel>
-                    <Select
-                      value={proximity}
-                      label="Tourist Area Proximity"
-                      onChange={(e) => setProximity(e.target.value)}
-                    >
-                      {proximityOptions.map((opt) => (
-                        <MenuItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Foot Traffic Preference</InputLabel>
-                    <Select
-                      value={traffic}
-                      label="Foot Traffic Preference"
-                      onChange={(e) => setTraffic(e.target.value)}
-                    >
-                      {trafficOptions.map((opt) => (
-                        <MenuItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Competition Level</InputLabel>
-                    <Select
-                      value={competition}
-                      label="Competition Level"
-                      onChange={(e) => setCompetition(e.target.value)}
-                    >
-                      {competitionOptions.map((opt) => (
-                        <MenuItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Internet Coverage</InputLabel>
-                    <Select
-                      value={internetCoverage}
-                      label="Internet Coverage"
-                      onChange={(e) => setInternetCoverage(e.target.value)}
-                    >
-                      {internetCoverageOptions.map((opt) => (
-                        <MenuItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
+                    {businessTypeInvalid && (
+                      <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                        Please choose a business type.
+                      </Typography>
+                    )}
                   </FormControl>
 
                   <Box>
                     <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                      Land
+                      Land *
                     </Typography>
                     <RadioGroup
                       row
@@ -454,17 +434,51 @@ export default function DashboardPage() {
                   <TextField
                     fullWidth
                     size="small"
-                    type="number"
-                    label={landIntent === "rent" ? "Rent amount (per month)" : "Purchase amount"}
+                    type="text"
+                    name="smartloc-budget"
+                    autoComplete="off"
+                    label={landIntent === "rent" ? "Budget · Rent / month *" : "Budget · Purchase *"}
                     placeholder={landIntent === "rent" ? "e.g. 50000" : "e.g. 5000000"}
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">LKR</InputAdornment>
-                      ),
-                      inputProps: { min: 0, step: landIntent === "rent" ? 1000 : 100000 },
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/[^0-9]/g, "");
+                      setAmount(digits);
                     }}
+                    error={amountInvalid || (showErrors && !amountTouched)}
+                    helperText={
+                      amountErrorMsg ||
+                      (showErrors && !amountTouched
+                        ? "Please enter a budget."
+                        : `Typical ${budgetLimits.label} range in Nuwara Eliya${businessType ? " for this business" : ""}: LKR ${budgetLimits.min.toLocaleString()} – ${budgetLimits.max.toLocaleString()}`)
+                    }
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">LKR</InputAdornment>,
+                      inputProps: {
+                        inputMode: "numeric",
+                        pattern: "[0-9]*",
+                        autoComplete: "off",
+                        "data-1p-ignore": "true",
+                        "data-lpignore": "true",
+                        "data-form-type": "other",
+                      },
+                    }}
+                  />
+
+                  <Autocomplete
+                    freeSolo
+                    size="small"
+                    options={nuwaraEliyaAreas}
+                    value={preferredArea}
+                    onChange={(_, v) => setPreferredArea(v || "")}
+                    onInputChange={(_, v) => setPreferredArea(v || "")}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Preferred Area (optional)"
+                        placeholder="Type to search Nuwara Eliya areas…"
+                        helperText="Leave blank to consider all areas"
+                      />
+                    )}
                   />
 
                   <Button
@@ -473,7 +487,7 @@ export default function DashboardPage() {
                     fullWidth
                     endIcon={!isAnalyzing && <ArrowForwardIcon />}
                     onClick={handleGenerateRecommendations}
-                    disabled={isAnalyzing || !allFilled}
+                    disabled={isAnalyzing}
                     sx={{ mt: 1, py: 1.5, borderRadius: 2, fontWeight: 600 }}
                   >
                     {isAnalyzing ? (

@@ -142,30 +142,12 @@ export default function ProfilePage() {
               Account overview
             </Typography>
             <Typography variant="h5" fontWeight={700}>
-              Profile & subscription
+              Profile
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Manage your SmartLoc account, usage and saved location insights for Nuwara Eliya.
+              Manage your SmartLoc account and saved location insights for Nuwara Eliya.
             </Typography>
           </Box>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Box textAlign="right">
-              <Typography variant="caption" color="text.secondary">
-                Remaining free analyses
-              </Typography>
-              <Typography variant="h6" fontWeight={700}>
-                2 / 3
-              </Typography>
-            </Box>
-            <Button
-              variant="contained"
-              sx={{ borderRadius: 999 }}
-              size="small"
-              onClick={() => navigate("/subscribe")}
-            >
-              Upgrade to Premium
-            </Button>
-          </Stack>
         </Stack>
       </Paper>
 
@@ -248,47 +230,11 @@ export default function ProfilePage() {
 
             <Box>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Subscription plan
+                Activity
               </Typography>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Chip label="Free tier" color="default" size="small" />
-                <Typography variant="caption" color="text.secondary">
-                  3 free analyses included
-                </Typography>
-              </Stack>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-                Analyses used: <strong>1 / 3</strong>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                Analyses this month: <strong>1</strong>
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Next reset: 01 Jul 2026
-              </Typography>
-            </Box>
-
-            <Box
-              sx={{
-                mt: 2,
-                p: 1.5,
-                borderRadius: 2,
-                border: "1px solid",
-                borderColor: "primary.main",
-                bgcolor: "rgba(13, 148, 136, 0.04)"
-              }}
-            >
-              <Typography variant="subtitle2" fontWeight={600} color="primary.main">
-                Pro — $9.99 / month
-              </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
-                Unlimited analyses, exports, priority support.
-              </Typography>
-              <Button
-                variant="contained"
-                size="small"
-                fullWidth
-                sx={{ mt: 1.5, borderRadius: 2, "&:hover": { bgcolor: "primary.dark" } }}
-                onClick={() => navigate("/subscribe")}
-              >
-                Subscribe to Pro
-              </Button>
             </Box>
 
             <Divider sx={{ my: 2 }} />
