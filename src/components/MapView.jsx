@@ -16,17 +16,22 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// Colored divIcons for score bands
-function coloredIcon(color) {
+// Colored divIcons for score bands — with the rank number in the pin head
+function coloredIcon(color, rank = "", selected = false) {
+  const size = selected ? 44 : 34;
+  const head = selected ? 20 : 16;
   return L.divIcon({
     className: "smartloc-pin",
-    iconSize: [28, 36],
-    iconAnchor: [14, 34],
-    popupAnchor: [0, -30],
-    html: `<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg">
-      <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="${color}"/>
-      <circle cx="14" cy="14" r="5" fill="white"/>
-    </svg>`,
+    iconSize: [size, size + 10],
+    iconAnchor: [size / 2, size + 8],
+    popupAnchor: [0, -size + 4],
+    html: `<div style="position:relative;width:${size}px;height:${size + 10}px;">
+      <svg width="${size}" height="${size + 10}" viewBox="0 0 ${size} ${size + 10}" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));">
+        <path d="M${size / 2} 0C${size * 0.22} 0 0 ${size * 0.22} 0 ${size / 2}c0 ${size * 0.38} ${size / 2} ${size * 0.75} ${size / 2} ${size * 0.75}s${size / 2} -${size * 0.37} ${size / 2} -${size * 0.75}C${size} ${size * 0.22} ${size * 0.78} 0 ${size / 2} 0z" fill="${color}" stroke="white" stroke-width="2"/>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${head / 2}" fill="white"/>
+        <text x="${size / 2}" y="${size / 2 + head / 4}" text-anchor="middle" font-size="${head - 4}" font-weight="700" fill="${color}" font-family="Outfit, sans-serif">${rank}</text>
+      </svg>
+    </div>`,
   });
 }
 
@@ -67,9 +72,10 @@ export default function MapView({ locations = [], center, zoom = defaultZoom, se
       zoom={zoom}
       style={{ width: "100%", height: "100%", borderRadius: 16 }}
       scrollWheelZoom={false}
+      attributionControl={false}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        attribution=""
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       {center && <FlyToSelected center={center} zoom={zoom} />}
@@ -78,7 +84,7 @@ export default function MapView({ locations = [], center, zoom = defaultZoom, se
         <Marker
           key={loc.id}
           position={[loc.lat, loc.lng]}
-          icon={loc.scoreColor ? coloredIcon(loc.scoreColor) : undefined}
+          icon={loc.scoreColor ? coloredIcon(loc.scoreColor, loc.rank || "", loc.id === selectedId) : undefined}
           ref={(r) => {
             if (r) markerRefs.current[loc.id] = r;
           }}

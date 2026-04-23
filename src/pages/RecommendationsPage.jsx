@@ -232,6 +232,7 @@ export default function RecommendationsPage() {
     const band = getScoreBand(r.score);
     return {
       id: r.id,
+      rank: r.rank,
       name: r.name,
       lat: r.lat,
       lng: r.lng,
@@ -325,7 +326,7 @@ export default function RecommendationsPage() {
   const monthlyInsight = `Try to open close to ${bestMonthNames} for a stronger launch — demand is softer during ${weakMonthNames}.`;
 
   return (
-    <Box sx={{ height: "100%", display: "flex", flexDirection: "column", gap: 3, overflowY: "auto", pb: 10 }}>
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column", gap: 3, overflowY: "auto", overflowX: "hidden", pb: 10, width: "100%", maxWidth: "100%" }}>
       {/* ────────── 1. Header + 3 summary cards ────────── */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }}>
         <Typography variant="overline" sx={{ letterSpacing: "0.28em", fontSize: 11, color: "text.secondary", fontWeight: 500 }}>
