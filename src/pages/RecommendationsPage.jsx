@@ -56,19 +56,19 @@ const AREA_NOTES = {
   ],
   "Gregory Lake Front": [
     { severity: "caution", title: "Premium rent", note: "Lakefront parcels command 3–10× the district average." },
-    { severity: "info", title: "Tourism-driven demand", note: "Footfall swings with holiday seasons — revenue will be lumpy." },
+    { severity: "info", title: "Tourism-driven demand", note: "Walk-in customer numbers swing with holiday seasons — revenue will be lumpy." },
   ],
   "Hakgala Road": [
-    { severity: "info", title: "Tourist corridor", note: "Good foot traffic near Hakgala Garden; competition clusters to avoid." },
+    { severity: "info", title: "Tourist corridor", note: "Plenty of visitors passing near Hakgala Garden; competition clusters to avoid." },
   ],
   "Pedro / Hill Club Area": [
     { severity: "info", title: "Upscale demographic", note: "Heritage / country-club clientele; price points should match." },
   ],
   "Nanu Oya": [
-    { severity: "info", title: "Transit hub", note: "Rail passengers pass through but don't always stay — plan footfall accordingly." },
+    { severity: "info", title: "Transit hub", note: "Rail passengers pass through but don't always stay — plan walk-in flow accordingly." },
   ],
   "Ambewela": [
-    { severity: "caution", title: "Limited foot traffic", note: "Rural dairy area; walk-in customers are sparse without a destination pull." },
+    { severity: "caution", title: "Few walk-in customers", note: "Rural dairy area; walk-in customers are sparse without a destination pull." },
     { severity: "caution", title: "Telecom coverage", note: "nPerf shows patchy 4G outside the town strip." },
   ],
   "Kandapola": [
@@ -78,13 +78,13 @@ const AREA_NOTES = {
     { severity: "caution", title: "Rural access", note: "Narrower roads; delivery logistics can be harder in monsoon months." },
   ],
   "Hawa Eliya": [
-    { severity: "info", title: "Residential growth", note: "Increasing local footfall from new housing; commercial supply still limited." },
+    { severity: "info", title: "Residential growth", note: "More local walk-in customers from new housing; commercial supply still limited." },
   ],
   "Lover's Leap": [
     { severity: "caution", title: "Landslide risk", note: "Moderate seasonal risk near the fall; verify site before leasing." },
   ],
   "Seetha Eliya": [
-    { severity: "info", title: "Religious tourism", note: "Temple-driven footfall; consider vegetarian/pilgrim preferences in menu." },
+    { severity: "info", title: "Religious tourism", note: "Temple visitors bring walk-in customers; consider vegetarian/pilgrim preferences in menu." },
   ],
   "Tea estates belt": [
     { severity: "caution", title: "Remote", note: "Far from town; only works if the business is itself the destination." },
@@ -141,7 +141,7 @@ function buildFactorBars(loc) {
 function bestForArchetype(loc) {
   const m = loc.metrics;
   if (m.lowCompetition >= 70 && m.budgetFit >= 60) return "Owners wanting a quiet, low-competition start";
-  if (m.footfall >= 75) return "Businesses that live on walk-in traffic";
+  if (m.footfall >= 75) return "Businesses that live on walk-in customers";
   if (m.peakSeason >= 70) return "Owners happy to ride seasonal tourist peaks";
   if (m.budgetFit >= 75) return "Budget-conscious first-time investors";
   if (m.lowCompetition < 40) return "Confident operators willing to out-compete locals";
@@ -153,7 +153,7 @@ function describeTopStrength(loc) {
   const scored = [
     { k: "low competition", v: m.lowCompetition },
     { k: "budget fit", v: m.budgetFit },
-    { k: "footfall", v: m.footfall },
+    { k: "walk-in customers", v: m.footfall },
     { k: "seasonal demand", v: m.peakSeason },
   ];
   scored.sort((a, b) => b.v - a.v);
@@ -339,7 +339,7 @@ export default function RecommendationsPage() {
           Best places for your <Box component="span" sx={{ color: "primary.main" }}>{businessLabel}</Box> in Nuwara Eliya
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-          Based on your inputs, we ranked {recommendations.length} areas on budget fit, footfall, competition and seasonal demand.
+          Based on your inputs, we ranked {recommendations.length} areas on budget, walk-in customers, competition and seasonal demand.
         </Typography>
 
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2, mt: 3 }}>
@@ -573,7 +573,7 @@ export default function RecommendationsPage() {
               <Box component="span" sx={{ color: "text.primary" }}>{businessLabel}</Box>{" "}
               because {selectedLocation.reasoning}. The composite score is{" "}
               <Box component="span" sx={{ color: selBand.color, fontWeight: 600 }}>{selectedLocation.score}/100</Box>{" "}
-              — a {selBand.label.toLowerCase()} — reflecting how well your budget, the local footfall, and existing competition balance out for this business.
+              — a {selBand.label.toLowerCase()} — reflecting how well your budget, the local walk-in customer flow, and existing competition balance out for this business.
             </Typography>
 
             {/* Factor contribution bars */}
@@ -751,7 +751,7 @@ export default function RecommendationsPage() {
             const rows = [
               { k: "Suitability score", v: (l) => <Chip size="small" label={`${l.score}/100 · ${getScoreBand(l.score).label}`} sx={{ bgcolor: getScoreBand(l.score).bg, color: getScoreBand(l.score).color, fontWeight: 500 }} /> },
               { k: "Budget fit", v: (l) => `${l.metrics.budgetFit}%` },
-              { k: "Footfall", v: (l) => `${l.metrics.footfall}%` },
+              { k: "Walk-in customers", v: (l) => `${l.metrics.footfall}%` },
               { k: "Low competition", v: (l) => `${l.metrics.lowCompetition}%` },
               { k: "Character", v: (l) => l.highlights.join(", ") },
               { k: "Things to consider", v: (l) => l.notes.length ? l.notes.map((n) => n.title).join("; ") : "No major flags" },

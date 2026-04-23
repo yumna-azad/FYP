@@ -340,7 +340,7 @@ export default function ProfilePage() {
                       }
                       secondary={
                         <Typography variant="caption" color="text.secondary">
-                          Central Nuwara Eliya · High foot traffic · Tourist zone
+                          Central Nuwara Eliya · Lots of walk-in customers · Tourist zone
                         </Typography>
                       }
                     />
@@ -402,7 +402,7 @@ export default function ProfilePage() {
                       primary={
                         <Stack direction="row" spacing={1} alignItems="center">
                           <Chip label="Café" size="small" />
-                          <Typography variant="body2">High foot traffic, low competition</Typography>
+                          <Typography variant="body2">Lots of walk-in customers, low competition</Typography>
                         </Stack>
                       }
                       secondary={
@@ -424,7 +424,7 @@ export default function ProfilePage() {
                       }
                       secondary={
                         <Typography variant="caption" color="text.secondary">
-                          Run 1 week ago · Budget: High · Footfall: High
+                          Run 1 week ago · Budget: High · Walk-in customers: High
                         </Typography>
                       }
                     />

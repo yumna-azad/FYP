@@ -183,9 +183,10 @@ export default function HomePage() {
                   fontWeight: 300,
                 }}
               >
-                A location intelligence platform built for Nuwara Eliya. We combine foot traffic,
-                competition density and market data so cafés, hotels, retail and wellness operators
-                choose with conviction.
+                A location intelligence platform built for Nuwara Eliya. We look at how many
+                walk-in customers each area gets, how many similar businesses are nearby, and
+                what the market pays — so cafés, hotels, retail and wellness operators choose
+                with conviction.
               </Typography>
             </motion.div>
 
@@ -304,7 +305,7 @@ export default function HomePage() {
                 {
                   n: "A",
                   title: "Business analysis",
-                  desc: "AI reports on foot traffic, demographics and spending patterns — cut through the anecdote.",
+                  desc: "AI reports on walk-in customers, local demographics and spending patterns — cut through the anecdote.",
                 },
                 {
                   n: "B",

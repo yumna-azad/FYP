@@ -180,11 +180,11 @@ def _rank_areas(business_type_key: str, land_intent: str, amount: float,
         else:
             parts.append(f"this area is crowded with similar businesses")
         if footfall > 0.75:
-            parts.append(f"daily footfall is strong")
+            parts.append(f"plenty of walk-in customers daily")
         elif footfall > 0.5:
-            parts.append(f"footfall is steady but not overwhelming")
+            parts.append(f"a steady flow of walk-in customers")
         else:
-            parts.append(f"walk-in traffic is limited — you'd lean on marketing")
+            parts.append(f"few walk-in customers — you'd lean on marketing")
         reasoning = "; ".join(parts) + "."
 
         ranked.append({
