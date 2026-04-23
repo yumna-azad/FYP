@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Box,
+  Chip,
   IconButton,
   Paper,
   Typography,
@@ -8,63 +9,92 @@ import {
   InputAdornment,
   Fade,
   Avatar,
+  Stack,
 } from "@mui/material";
 import ChatIcon from "@mui/icons-material/Chat";
 import CloseIcon from "@mui/icons-material/Close";
 import SendIcon from "@mui/icons-material/Send";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
+import { sendToGemini, hasGeminiKey } from "../lib/gemini.js";
+
+const INITIAL_MESSAGE = {
+  from: "bot",
+  text: "Hi! I'm the SmartLoc Business Assistant. I can help you pick a location in Nuwara Eliya, explain why an area suits your business, or talk through risks and timing. What's on your mind?",
+};
+
+const SUGGESTED_PROMPTS = [
+  "Which location is safer for a first-time owner?",
+  "Best area for a small-budget cafe?",
+  "Which place has lower competition?",
+  "What month is best to open?",
+];
+
+function fallbackReply(userMsg) {
+  // Used only when VITE_GEMINI_API_KEY is not set — keeps the chatbot usable
+  // during dev without burning a free-tier key, and as a graceful degrade if
+  // Gemini errors out.
+  const greetingRe = /^(hi|hello|hey|hiya|yo|howdy|good\s*(morning|afternoon|evening)|hola|aloha|sup)\b/i;
+  const thanksRe = /^(thanks|thank you|ty|thx|cheers|appreciate it)\b/i;
+  const byeRe = /^(bye|goodbye|see ya|later|cya|ok bye)\b/i;
+  const helpRe = /\b(help|what can you do|capabilities|menu|options)\b/i;
+
+  if (greetingRe.test(userMsg))
+    return "Hey! Happy to help. You can ask me about areas, budget fit, best months to open, or risks to watch out for.";
+  if (thanksRe.test(userMsg))
+    return "Anytime. Let me know if you want to dig into a specific area.";
+  if (byeRe.test(userMsg))
+    return "Take care! Come back when you want to run more recommendations.";
+  if (helpRe.test(userMsg))
+    return "I can help with: • which area suits your business • best time to open • budget and competition • risks to consider. Ask away.";
+  if (userMsg.includes("competition"))
+    return "Low-competition options include Glencairn, Ambewela and the Tea estates belt. Town Centre is the most saturated.";
+  if (userMsg.includes("budget") || userMsg.includes("cheap"))
+    return "For smaller budgets look at Nanu Oya, Ambewela, Glencairn or the Tea estates belt. Town Centre and Gregory Lake Front are premium.";
+  if (userMsg.includes("tourist") || userMsg.includes("visibility"))
+    return "Gregory Lake Front, Town Centre and Hakgala Road have the strongest tourist visibility.";
+  if (userMsg.includes("month") || userMsg.includes("time") || userMsg.includes("season"))
+    return "Peak months are April, August and December. Monsoon / slower months are May, June, July, October and November.";
+  return "Got it. I can help you think through area, budget, timing and risks — try one of the suggested questions, or ask in your own words.";
+}
 
 export default function Chatbot() {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      from: "bot",
-      text: "Hi! I'm the SmartLoc assistant. SmartLoc helps businesses find the right location in Nuwara Eliya according to their business type. I can help you use the dashboard, understand recommendations, or answer questions about the area. What would you like to know?",
-    },
-  ]);
+  const [messages, setMessages] = useState([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const scrollerRef = useRef(null);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
-    setMessages((prev) => [...prev, { from: "user", text: input.trim() }]);
-    const userMsg = input.trim().toLowerCase();
+  useEffect(() => {
+    scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, open]);
+
+  const sendMessage = async (rawText) => {
+    const text = rawText.trim();
+    if (!text || busy) return;
+    setMessages((prev) => [...prev, { from: "user", text }]);
     setInput("");
-    
-    setTimeout(() => {
-      const greetingRe = /^(hi|hello|hey|hiya|yo|howdy|good\s*(morning|afternoon|evening)|hola|aloha|sup)\b/i;
-      const thanksRe = /^(thanks|thank you|ty|thx|cheers|appreciate it)\b/i;
-      const byeRe = /^(bye|goodbye|see ya|later|cya|ok bye)\b/i;
-      const helpRe = /\b(help|what can you do|capabilities|menu|options)\b/i;
+    setBusy(true);
 
-      let response;
-
-      if (greetingRe.test(userMsg)) {
-        response = "Hey! Happy to help. You can ask me about the dashboard, how recommendations work, or anything about Nuwara Eliya.";
-      } else if (thanksRe.test(userMsg)) {
-        response = "Anytime. Let me know if you want to dig into a specific business type or area.";
-      } else if (byeRe.test(userMsg)) {
-        response = "Take care! Come back if you want to run more recommendations.";
-      } else if (helpRe.test(userMsg)) {
-        response = "I can help with: • using the dashboard form • interpreting the XGBoost scores • understanding Nuwara Eliya areas • contacting the team. Ask away.";
-      } else if (userMsg.includes("dashboard") || userMsg.includes("input") || userMsg.includes("form")) {
-        response = "The dashboard takes four inputs: Business Type (required), Land (rent or purchase), Budget in LKR, and optionally a Preferred Area. Fill those and click Generate Recommendations — the XGBoost model ranks 12 Nuwara Eliya areas for you.";
-      } else if (userMsg.includes("recommendation") || userMsg.includes("score") || userMsg.includes("ranking")) {
-        response = "Each area gets a composite score: 40% XGBoost suitability for your business type × month, 25% budget fit, 20% footfall, 15% low-competition, plus a small bonus if you chose a preferred area. Hover the 12-month chart to see seasonality.";
-      } else if (userMsg.includes("model") || userMsg.includes("xgboost") || userMsg.includes("ml") || userMsg.includes("ai")) {
-        response = "Behind the scenes is an XGBoost regressor trained on 18,096 rows (1,508 businesses × 12 months × 24 features). Test R² is 0.8447. The notebook compared Random Forest, XGBoost, and LightGBM — XGBoost won.";
-      } else if (userMsg.includes("contact") || userMsg.includes("phone") || userMsg.includes("email")) {
-        response = "Call us at +94 52 222 1234 or email hello@smartloc.lk. Mon–Sat, 9am–6pm.";
-      } else if (userMsg.includes("nuwara eliya") || userMsg.includes("area") || userMsg.includes("location") || userMsg.includes("business type")) {
-        response = "SmartLoc is focused on Nuwara Eliya — the hill country capital. We cover 12 areas including Town Centre, Gregory Lake Front, Hakgala Road, Pedro, Nanu Oya, Kandapola and the tea estates belt. Pick a business type and we'll rank them.";
-      } else if (/\?$/.test(userMsg.trim())) {
-        response = "Good question — I'm a limited assistant so I may not have that specific answer. Try rephrasing with keywords like dashboard, recommendations, model, or contact. For anything detailed, the team is reachable on the Contact section.";
+    try {
+      let reply;
+      if (hasGeminiKey()) {
+        reply = await sendToGemini(text);
       } else {
-        response = "Got it. I can help you with the dashboard, the XGBoost recommendations, or quick facts about Nuwara Eliya — just ask. Type 'help' to see what I cover.";
+        reply = fallbackReply(text.toLowerCase());
       }
-
-      setMessages((prev) => [...prev, { from: "bot", text: response }]);
-    }, 500);
+      setMessages((prev) => [...prev, { from: "bot", text: reply }]);
+    } catch (err) {
+      console.warn("Gemini error, falling back to canned reply:", err);
+      setMessages((prev) => [
+        ...prev,
+        { from: "bot", text: fallbackReply(text.toLowerCase()) },
+      ]);
+    } finally {
+      setBusy(false);
+    }
   };
+
+  const handleSend = () => sendMessage(input);
 
   return (
     <>
@@ -96,8 +126,8 @@ export default function Chatbot() {
             position: "fixed",
             bottom: 24,
             right: 24,
-            width: 380,
-            height: 500,
+            width: 400,
+            height: 560,
             display: open ? "flex" : "none",
             flexDirection: "column",
             borderRadius: 3,
@@ -107,6 +137,7 @@ export default function Chatbot() {
             borderColor: "divider",
           }}
         >
+          {/* Header */}
           <Box
             sx={{
               p: 2,
@@ -117,30 +148,36 @@ export default function Chatbot() {
               justifyContent: "space-between",
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Stack direction="row" spacing={1.25} alignItems="center">
               <SmartToyIcon />
-              <Typography variant="subtitle1" fontWeight={600}>
-                SmartLoc Assistant
-              </Typography>
-            </Box>
+              <Box>
+                <Typography variant="subtitle1" fontWeight={600} sx={{ lineHeight: 1.1 }}>
+                  SmartLoc Business Assistant
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.85 }}>
+                  {hasGeminiKey() ? "Powered by Gemini" : "Offline mode"}
+                </Typography>
+              </Box>
+            </Stack>
             <IconButton size="small" onClick={() => setOpen(false)} sx={{ color: "white" }}>
               <CloseIcon />
             </IconButton>
           </Box>
 
-          <Box sx={{ flex: 1, overflowY: "auto", p: 2, bgcolor: "background.default" }}>
+          {/* Messages */}
+          <Box ref={scrollerRef} sx={{ flex: 1, overflowY: "auto", p: 2, bgcolor: "background.default" }}>
             {messages.map((msg, i) => (
               <Box
                 key={i}
                 sx={{
                   display: "flex",
                   justifyContent: msg.from === "user" ? "flex-end" : "flex-start",
-                  mb: 2,
+                  mb: 1.5,
                 }}
               >
                 <Box
                   sx={{
-                    maxWidth: "75%",
+                    maxWidth: "80%",
                     display: "flex",
                     gap: 1,
                     flexDirection: msg.from === "user" ? "row-reverse" : "row",
@@ -148,12 +185,12 @@ export default function Chatbot() {
                 >
                   <Avatar
                     sx={{
-                      width: 32,
-                      height: 32,
+                      width: 28,
+                      height: 28,
                       bgcolor: msg.from === "user" ? "primary.main" : "secondary.main",
                     }}
                   >
-                    {msg.from === "user" ? "U" : <SmartToyIcon sx={{ fontSize: 18 }} />}
+                    {msg.from === "user" ? "U" : <SmartToyIcon sx={{ fontSize: 16 }} />}
                   </Avatar>
                   <Paper
                     elevation={0}
@@ -164,25 +201,94 @@ export default function Chatbot() {
                       color: msg.from === "user" ? "white" : "text.primary",
                     }}
                   >
-                    <Typography variant="body2">{msg.text}</Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
+                      {msg.text}
+                    </Typography>
                   </Paper>
                 </Box>
               </Box>
             ))}
+
+            {busy && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, pl: 5, mt: 0.5 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: 0.5,
+                    "& > span": {
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      bgcolor: "text.secondary",
+                      opacity: 0.4,
+                      animation: "typingBlink 1.2s infinite ease-in-out",
+                    },
+                    "& > span:nth-of-type(2)": { animationDelay: "0.2s" },
+                    "& > span:nth-of-type(3)": { animationDelay: "0.4s" },
+                    "@keyframes typingBlink": {
+                      "0%, 80%, 100%": { opacity: 0.2 },
+                      "40%": { opacity: 1 },
+                    },
+                  }}
+                >
+                  <span /><span /><span />
+                </Box>
+                <Typography variant="caption" color="text.secondary">thinking…</Typography>
+              </Box>
+            )}
+
+            {messages.length === 1 && !busy && (
+              <Box sx={{ mt: 1, pl: 5 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 1 }}>
+                  Try asking
+                </Typography>
+                <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.75 }}>
+                  {SUGGESTED_PROMPTS.map((p) => (
+                    <Chip
+                      key={p}
+                      label={p}
+                      size="small"
+                      onClick={() => sendMessage(p)}
+                      sx={{
+                        cursor: "pointer",
+                        bgcolor: "background.paper",
+                        border: "1px solid",
+                        borderColor: "divider",
+                        "&:hover": { bgcolor: "action.hover", borderColor: "primary.main" },
+                        fontSize: "0.75rem",
+                        height: 26,
+                      }}
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            )}
           </Box>
 
+          {/* Input */}
           <Box sx={{ p: 2, borderTop: "1px solid", borderColor: "divider" }}>
             <TextField
               fullWidth
               size="small"
-              placeholder="Type your message..."
+              placeholder={busy ? "Waiting for reply…" : "Ask about areas, budget, risks, timing…"}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSend()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              disabled={busy}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton size="small" onClick={handleSend} disabled={!input.trim()} color="primary">
+                    <IconButton
+                      size="small"
+                      onClick={handleSend}
+                      disabled={!input.trim() || busy}
+                      color="primary"
+                    >
                       <SendIcon fontSize="small" />
                     </IconButton>
                   </InputAdornment>

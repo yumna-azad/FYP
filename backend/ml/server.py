@@ -59,6 +59,9 @@ class AreaRecommendation(BaseModel):
     competition_score: float
     tags: list[str]
     reasoning: str
+    typical_rent_lkr: int
+    typical_purchase_lkr: int
+    budget_delta_pct: float  # positive = user's budget higher than area norm; negative = below
 
 
 class PredictResponse(BaseModel):
@@ -158,14 +161,31 @@ def _rank_areas(business_type_key: str, land_intent: str, amount: float,
 
         score_100 = round(composite * 100, 1)
 
-        # Reasoning: top 2 driver labels
-        drivers = []
-        if budget_fit > 0.75: drivers.append("budget fits well")
-        if footfall > 0.7: drivers.append("high footfall")
-        if competition > 0.7: drivers.append("low competition")
-        if budget_fit < 0.3: drivers.append("budget mismatch")
-        if footfall < 0.4: drivers.append("limited footfall")
-        reasoning = ", ".join(drivers) if drivers else "balanced trade-offs"
+        # Human-readable reasoning built from real area + budget comparison
+        typical = area["rent_indicative_lkr"] if land_intent == "rent" else area["price_per_perch_lkr"] * 40
+        budget_delta = ((amount - typical) / typical * 100) if typical else 0
+        unit = "rent / month" if land_intent == "rent" else "purchase budget"
+        parts = []
+        if amount > 0 and typical:
+            if abs(budget_delta) < 15:
+                parts.append(f"your LKR {int(amount):,} {unit} matches the area's typical LKR {int(typical):,}")
+            elif budget_delta >= 15:
+                parts.append(f"your LKR {int(amount):,} {unit} is comfortably above the typical LKR {int(typical):,} here")
+            else:  # budget below
+                parts.append(f"your LKR {int(amount):,} {unit} is tighter than the typical LKR {int(typical):,} here")
+        if competition > 0.75:
+            parts.append(f"very few similar businesses operate nearby")
+        elif competition > 0.55:
+            parts.append(f"competition is moderate")
+        else:
+            parts.append(f"this area is crowded with similar businesses")
+        if footfall > 0.75:
+            parts.append(f"daily footfall is strong")
+        elif footfall > 0.5:
+            parts.append(f"footfall is steady but not overwhelming")
+        else:
+            parts.append(f"walk-in traffic is limited — you'd lean on marketing")
+        reasoning = "; ".join(parts) + "."
 
         ranked.append({
             "area": area["name"],
@@ -173,6 +193,9 @@ def _rank_areas(business_type_key: str, land_intent: str, amount: float,
             "budget_fit": round(budget_fit, 2),
             "footfall_score": round(footfall, 2),
             "competition_score": round(competition, 2),
+            "typical_rent_lkr": int(area["rent_indicative_lkr"]),
+            "typical_purchase_lkr": int(area["price_per_perch_lkr"] * 40),
+            "budget_delta_pct": round(budget_delta, 1),
             "tags": area["tags"],
             "reasoning": reasoning,
         })

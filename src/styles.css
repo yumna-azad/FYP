@@ -129,8 +129,9 @@ body {
 }
 
 .font-display {
-  font-family: "Instrument Serif", "Times New Roman", serif !important;
-  letter-spacing: -0.015em;
+  font-family: "Outfit", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-weight: 500;
+  letter-spacing: -0.028em;
 }
 
 /* Kill Chrome's yellow/blue autofill background on all inputs */
