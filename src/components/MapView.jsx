@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -16,8 +16,12 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// Colored divIcons for score bands — with the rank number in the pin head
-function coloredIcon(color, rank = "", selected = false) {
+// Module-level cache so identical pin configs reuse the same L.divIcon instance
+// across re-renders. Without this, Leaflet throws "_leaflet_events" on cleanup
+// because it tries to remove an icon instance that React already replaced.
+const ICON_CACHE = new Map();
+
+function buildColoredIcon(color, rank, selected) {
   const size = selected ? 44 : 34;
   const head = selected ? 20 : 16;
   return L.divIcon({
@@ -35,6 +39,16 @@ function coloredIcon(color, rank = "", selected = false) {
   });
 }
 
+function getCachedIcon(color, rank, selected) {
+  const key = `${color}|${rank}|${selected ? 1 : 0}`;
+  let icon = ICON_CACHE.get(key);
+  if (!icon) {
+    icon = buildColoredIcon(color, rank, selected);
+    ICON_CACHE.set(key, icon);
+  }
+  return icon;
+}
+
 const defaultCenter = [6.9497, 80.7891]; // Nuwara Eliya
 const defaultZoom = 13;
 
@@ -50,7 +64,7 @@ function FlyToSelected({ center, zoom }) {
 
 /**
  * Props:
- *   locations: [{ id, name, lat, lng, description, scoreColor?, renderPopup? }]
+ *   locations: [{ id, name, lat, lng, description, scoreColor?, rank?, renderPopup? }]
  *   center: [lat,lng]           — optional; if provided, map flies here on change
  *   zoom: number                — default 13
  *   selectedId: string          — optional; when set, popup auto-opens on that marker
@@ -59,12 +73,22 @@ export default function MapView({ locations = [], center, zoom = defaultZoom, se
   const mapCenter = center && center[0] != null && center[1] != null ? center : defaultCenter;
   const markerRefs = useRef({});
 
+  // Stable map key — only remounts when the locations list actually changes
+  const locationsKey = useMemo(
+    () => locations.map((l) => l.id).join("|"),
+    [locations]
+  );
+
   // Open popup for selected marker whenever selectedId changes
   useEffect(() => {
     if (!selectedId) return;
-    const m = markerRefs.current[selectedId];
-    if (m) m.openPopup();
-  }, [selectedId]);
+    // slight delay lets the icon-swap finish first so the popup anchors correctly
+    const t = setTimeout(() => {
+      const m = markerRefs.current[selectedId];
+      if (m && m.openPopup) m.openPopup();
+    }, 50);
+    return () => clearTimeout(t);
+  }, [selectedId, locationsKey]);
 
   return (
     <MapContainer
@@ -80,27 +104,36 @@ export default function MapView({ locations = [], center, zoom = defaultZoom, se
       />
       {center && <FlyToSelected center={center} zoom={zoom} />}
 
-      {locations.map((loc) => (
-        <Marker
-          key={loc.id}
-          position={[loc.lat, loc.lng]}
-          icon={loc.scoreColor ? coloredIcon(loc.scoreColor, loc.rank || "", loc.id === selectedId) : undefined}
-          ref={(r) => {
-            if (r) markerRefs.current[loc.id] = r;
-          }}
-        >
-          <Popup minWidth={240} maxWidth={320}>
-            {loc.renderPopup ? (
-              loc.renderPopup()
-            ) : (
-              <>
-                <strong>{loc.name}</strong>
-                {loc.description ? <div style={{ marginTop: 4 }}>{loc.description}</div> : null}
-              </>
-            )}
-          </Popup>
-        </Marker>
-      ))}
+      {locations.map((loc) => {
+        const selected = loc.id === selectedId;
+        const icon = loc.scoreColor
+          ? getCachedIcon(loc.scoreColor, String(loc.rank ?? ""), selected)
+          : undefined;
+
+        return (
+          <Marker
+            key={loc.id}
+            position={[loc.lat, loc.lng]}
+            icon={icon}
+            zIndexOffset={selected ? 1000 : 0}
+            ref={(r) => {
+              if (r) markerRefs.current[loc.id] = r;
+              else delete markerRefs.current[loc.id];
+            }}
+          >
+            <Popup minWidth={240} maxWidth={320}>
+              {loc.renderPopup ? (
+                loc.renderPopup()
+              ) : (
+                <>
+                  <strong>{loc.name}</strong>
+                  {loc.description ? <div style={{ marginTop: 4 }}>{loc.description}</div> : null}
+                </>
+              )}
+            </Popup>
+          </Marker>
+        );
+      })}
     </MapContainer>
   );
 }
