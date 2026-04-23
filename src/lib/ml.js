@@ -2,7 +2,7 @@
 // Set VITE_ML_API_URL in .env to override the default localhost endpoint.
 
 const ML_API_URL =
-  import.meta.env.VITE_ML_API_URL || "http://127.0.0.1:8001";
+  import.meta.env.VITE_ML_API_URL || "http://127.0.0.1:9191";
 
 export async function fetchRecommendations(payload) {
   const body = {

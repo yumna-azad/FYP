@@ -44,7 +44,7 @@ export function AuthProvider({ children }) {
     if (API_BASE) {
       const res = await fetch(`${API_BASE}/api/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
         body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
@@ -103,7 +103,7 @@ export function AuthProvider({ children }) {
     if (API_BASE) {
       const res = await fetch(`${API_BASE}/api/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
         body: JSON.stringify({ name, email, password, contact_number: contactNumber || undefined }),
       });
       if (!res.ok) {
@@ -176,6 +176,7 @@ export function AuthProvider({ children }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),

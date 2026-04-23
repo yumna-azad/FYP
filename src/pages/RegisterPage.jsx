@@ -23,15 +23,24 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [emailTaken, setEmailTaken] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setEmailTaken(false);
     setLoading(true);
     try {
       await register(fullName, email, password, contactNumber);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.message || "Registration failed");
+      const msg = String(err.message || "");
+      if (/email.*(taken|already|registered|exists)/i.test(msg)) {
+        setError("Email already registered");
+        setEmailTaken(true);
+      } else {
+        setError(msg || "Registration failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -237,7 +246,44 @@ export default function RegisterPage() {
                 />
 
                 {error && (
-                  <Typography sx={{ fontSize: "0.875rem", color: "#b91c1c" }}>{error}</Typography>
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    sx={{
+                      px: 2,
+                      py: 1.5,
+                      borderRadius: 2,
+                      bgcolor: "rgba(185, 28, 28, 0.06)",
+                      border: "1px solid rgba(185, 28, 28, 0.2)",
+                    }}
+                  >
+                    <Typography sx={{ fontSize: "0.875rem", color: "#b91c1c" }}>
+                      {error}
+                    </Typography>
+                    {emailTaken && (
+                      <Box
+                        component="span"
+                        onClick={() => navigate("/login")}
+                        sx={{
+                          cursor: "pointer",
+                          fontSize: "0.8125rem",
+                          fontWeight: 500,
+                          color: "#b91c1c",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          ml: 2,
+                          textDecoration: "underline",
+                          textUnderlineOffset: 3,
+                          "&:hover": { color: "#7f1d1d" },
+                        }}
+                      >
+                        Sign in instead
+                        <ArrowForwardIcon sx={{ fontSize: 14 }} />
+                      </Box>
+                    )}
+                  </Stack>
                 )}
 
                 <Stack direction="row" spacing={3} alignItems="center" sx={{ pt: 2 }}>
