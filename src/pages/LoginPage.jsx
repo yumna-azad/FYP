@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
-const HERO_IMAGE = "/images/hero/ne-mist.jpg";
+const HERO_IMAGE = "/images/hero/real-gregory-lake.jpg";
 
 const ease = [0.22, 1, 0.36, 1];
 

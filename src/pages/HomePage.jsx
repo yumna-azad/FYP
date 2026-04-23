@@ -32,7 +32,7 @@ import { getSocialMediaLinks, getWhatsAppLink } from "../lib/socialMedia.js";
 
 const MotionBox = motion(Box);
 
-const HERO_IMAGE = "/images/hero/ne-tea.jpg";
+const HERO_IMAGE = "/images/hero/real-tea-plantations.jpg";
 
 const ease = [0.22, 1, 0.36, 1];
 
