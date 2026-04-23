@@ -1,11 +1,47 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import L from "leaflet";
 import App from "./App.jsx";
 import "./styles.css";
 
-// Add error handler for unhandled errors
+// Defensive patch: Leaflet's Marker._removeIcon can throw during React
+// StrictMode's double-unmount (dev only) when this._icon has already been
+// nulled. Guard it so the second cleanup pass is a no-op.
+// https://github.com/PaulLeCam/react-leaflet/issues/936
+const _origRemoveIcon = L.Marker.prototype._removeIcon;
+L.Marker.prototype._removeIcon = function () {
+  if (!this._icon) return;
+  try {
+    return _origRemoveIcon.apply(this, arguments);
+  } catch (e) {
+    // Swallow only the known "_leaflet_events on undefined" race condition
+    if (String(e?.message || "").includes("_leaflet_events")) return;
+    throw e;
+  }
+};
+
+// Errors we don't want to blow away the whole UI for. These are cleanup-phase
+// races from Leaflet / react-leaflet that don't affect the running app.
+const IGNORABLE_ERROR_PATTERNS = [
+  /_leaflet_events/i,
+  /_removeIcon/i,
+  /ResizeObserver loop/i,
+];
+
+function isIgnorableError(err) {
+  const message = String(err?.message || err || "");
+  const stack = String(err?.stack || "");
+  return IGNORABLE_ERROR_PATTERNS.some((p) => p.test(message) || p.test(stack));
+}
+
+// Global error handler for catastrophic errors — but skip the known benign ones
 window.addEventListener("error", (event) => {
+  if (isIgnorableError(event.error)) {
+    console.warn("[suppressed harmless error]:", event.error?.message);
+    event.preventDefault();
+    return;
+  }
   console.error("Global error:", event.error);
   const root = document.getElementById("root");
   if (root) {
@@ -23,6 +59,10 @@ window.addEventListener("error", (event) => {
 
 // Add unhandled promise rejection handler
 window.addEventListener("unhandledrejection", (event) => {
+  if (isIgnorableError(event.reason)) {
+    event.preventDefault();
+    return;
+  }
   console.error("Unhandled promise rejection:", event.reason);
 });
 
