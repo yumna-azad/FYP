@@ -31,18 +31,37 @@ export default function Chatbot() {
     setInput("");
     
     setTimeout(() => {
-      let response = "Thanks for your question! For detailed location analysis, fill out the dashboard form and generate recommendations. For direct support, contact our team via phone or email.";
-      
-      if (userMsg.includes("dashboard") || userMsg.includes("input")) {
-        response = "The dashboard helps you find the right location in Nuwara Eliya for your business type. Choose your business type (café, hotel, restaurant, etc.), set preferences and budget, then click 'Generate Recommendations' to get location suggestions.";
-      } else if (userMsg.includes("recommendation") || userMsg.includes("location")) {
-        response = "After filling the dashboard, you'll see ranked locations with scores, metrics, and nearby attractions. Click any location to see details.";
+      const greetingRe = /^(hi|hello|hey|hiya|yo|howdy|good\s*(morning|afternoon|evening)|hola|aloha|sup)\b/i;
+      const thanksRe = /^(thanks|thank you|ty|thx|cheers|appreciate it)\b/i;
+      const byeRe = /^(bye|goodbye|see ya|later|cya|ok bye)\b/i;
+      const helpRe = /\b(help|what can you do|capabilities|menu|options)\b/i;
+
+      let response;
+
+      if (greetingRe.test(userMsg)) {
+        response = "Hey! Happy to help. You can ask me about the dashboard, how recommendations work, or anything about Nuwara Eliya.";
+      } else if (thanksRe.test(userMsg)) {
+        response = "Anytime. Let me know if you want to dig into a specific business type or area.";
+      } else if (byeRe.test(userMsg)) {
+        response = "Take care! Come back if you want to run more recommendations.";
+      } else if (helpRe.test(userMsg)) {
+        response = "I can help with: • using the dashboard form • interpreting the XGBoost scores • understanding Nuwara Eliya areas • contacting the team. Ask away.";
+      } else if (userMsg.includes("dashboard") || userMsg.includes("input") || userMsg.includes("form")) {
+        response = "The dashboard takes four inputs: Business Type (required), Land (rent or purchase), Budget in LKR, and optionally a Preferred Area. Fill those and click Generate Recommendations — the XGBoost model ranks 12 Nuwara Eliya areas for you.";
+      } else if (userMsg.includes("recommendation") || userMsg.includes("score") || userMsg.includes("ranking")) {
+        response = "Each area gets a composite score: 40% XGBoost suitability for your business type × month, 25% budget fit, 20% footfall, 15% low-competition, plus a small bonus if you chose a preferred area. Hover the 12-month chart to see seasonality.";
+      } else if (userMsg.includes("model") || userMsg.includes("xgboost") || userMsg.includes("ml") || userMsg.includes("ai")) {
+        response = "Behind the scenes is an XGBoost regressor trained on 18,096 rows (1,508 businesses × 12 months × 24 features). Test R² is 0.8447. The notebook compared Random Forest, XGBoost, and LightGBM — XGBoost won.";
       } else if (userMsg.includes("contact") || userMsg.includes("phone") || userMsg.includes("email")) {
-        response = "You can call us at +94 52 222 1234 or email hello@smartloc.lk. Our team is available Mon–Sat, 9am–6pm.";
-      } else if (userMsg.includes("nuwara eliya") || userMsg.includes("area") || userMsg.includes("business type")) {
-        response = "SmartLoc is for businesses finding the right location in Nuwara Eliya according to their business type. We focus on Nuwara Eliya—hill country, tourism, and commerce—and recommend the best spot for your café, hotel, restaurant, retail, or other type.";
+        response = "Call us at +94 52 222 1234 or email hello@smartloc.lk. Mon–Sat, 9am–6pm.";
+      } else if (userMsg.includes("nuwara eliya") || userMsg.includes("area") || userMsg.includes("location") || userMsg.includes("business type")) {
+        response = "SmartLoc is focused on Nuwara Eliya — the hill country capital. We cover 12 areas including Town Centre, Gregory Lake Front, Hakgala Road, Pedro, Nanu Oya, Kandapola and the tea estates belt. Pick a business type and we'll rank them.";
+      } else if (/\?$/.test(userMsg.trim())) {
+        response = "Good question — I'm a limited assistant so I may not have that specific answer. Try rephrasing with keywords like dashboard, recommendations, model, or contact. For anything detailed, the team is reachable on the Contact section.";
+      } else {
+        response = "Got it. I can help you with the dashboard, the XGBoost recommendations, or quick facts about Nuwara Eliya — just ask. Type 'help' to see what I cover.";
       }
-      
+
       setMessages((prev) => [...prev, { from: "bot", text: response }]);
     }, 500);
   };
