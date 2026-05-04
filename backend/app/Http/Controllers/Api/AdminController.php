@@ -33,11 +33,23 @@ class AdminController extends Controller
         $locationsLastMonth = Location::where('created_at', '>=', now()->subMonth())->count();
         $locationsChange = '+' . ($locationsLastMonth);
 
-        // Active sessions (mock - replace with actual session tracking)
-        $activeSessions = DB::table('sessions')
-            ->where('last_activity', '>=', now()->subMinutes(30)->timestamp)
-            ->count();
-        $sessionsLastMonth = 0; // Mock
+        // Active sessions. Falls back to last_active_at on users when the
+        // sessions table is not present (default Laravel install with file
+        // session driver). Either way, errors here must not 500 the whole
+        // admin dashboard.
+        $activeSessions = 0;
+        try {
+            if (\Schema::hasTable('sessions')) {
+                $activeSessions = DB::table('sessions')
+                    ->where('last_activity', '>=', now()->subMinutes(30)->timestamp)
+                    ->count();
+            } else {
+                $activeSessions = User::where('last_active_at', '>=', now()->subMinutes(30))->count();
+            }
+        } catch (\Throwable $e) {
+            $activeSessions = 0;
+        }
+        $sessionsLastMonth = 0;
         $sessionsChange = $activeSessions > 0 ? '+' . round(($activeSessions / max($activeSessions - $sessionsLastMonth, 1)) * 100) . '%' : '+0%';
 
         return response()->json([
