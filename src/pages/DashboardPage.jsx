@@ -29,7 +29,7 @@ import { adminAPI, useMockData, submitLocationFinder } from "../lib/api.js";
 
 // Fallback when no API or API returns empty (admin "Add Business Type" feeds the list when API is connected)
 const defaultBusinessTypeOptions = [
-  { value: "cafe", label: "Cafe" },
+  { value: "cafe", label: "Café" },
   { value: "retail_shop", label: "Retail Shop" },
   { value: "wellness_center", label: "Wellness Center" },
   { value: "restaurant", label: "Restaurant" },

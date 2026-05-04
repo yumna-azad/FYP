@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Area;
 use App\Models\BusinessType;
 use App\Models\Location;
 use App\Models\SubscriptionPlan;
 use App\Models\LocationFinderSubmission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class AdminController extends Controller
 {
@@ -59,8 +62,8 @@ class AdminController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'role' => $user->role,
                 'subscription_plan_id' => $user->subscription_plan_id,
-                'status' => $user->status ?? 'Active',
                 'lastActive' => $user->last_active_at ? $user->last_active_at->diffForHumans() : 'Never',
             ];
         });
@@ -76,17 +79,17 @@ class AdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
+            'password' => 'required|string|min:6',
             'subscription_plan_id' => 'nullable|exists:subscription_plans,id',
-            'status' => 'in:Active,Inactive',
+            'role' => 'sometimes|string',
         ]);
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'password' => bcrypt('password'), // Set default password
+            'password' => bcrypt($validated['password']),
             'subscription_plan_id' => $validated['subscription_plan_id'] ?? null,
-            'status' => $validated['status'] ?? 'Active',
-            'role' => 'Location planner',
+            'role' => $validated['role'] ?? 'Location planner',
         ]);
 
         return response()->json(['data' => $user], 201);
@@ -103,7 +106,7 @@ class AdminController extends Controller
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|unique:users,email,' . $id,
             'subscription_plan_id' => 'nullable|exists:subscription_plans,id',
-            'status' => 'sometimes|in:Active,Inactive',
+            'role' => 'sometimes|string',
         ]);
 
         $user->update($validated);
@@ -310,12 +313,9 @@ class AdminController extends Controller
                     'user_name' => $s->user?->name,
                     'user_email' => $s->user?->email,
                     'business_type' => $s->business_type,
-                    'proximity' => $s->proximity,
-                    'traffic' => $s->traffic,
-                    'competition' => $s->competition,
-                    'internet_coverage' => $s->internet_coverage,
                     'land_intent' => $s->land_intent,
-                    'amount' => $s->amount,
+                    'budget' => $s->budget,
+                    'preferred_area' => $s->preferred_area,
                     'created_at' => $s->created_at?->toIso8601String(),
                 ];
             });
@@ -338,5 +338,85 @@ class AdminController extends Controller
             ],
             'recent_activity' => [],
         ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Areas (Nuwara Eliya neighbourhoods) . admin CRUD.
+    //
+    // After every successful write we ping FastAPI's /api/ml/refresh_areas
+    // endpoint as a best-effort cache invalidation. Failures are swallowed
+    // (the FastAPI 5-minute TTL is the safety net).
+    // ─────────────────────────────────────────────────────────────────────
+
+    private function refreshMlCache(): void
+    {
+        try {
+            Http::timeout(2)->post('http://127.0.0.1:8001/api/ml/refresh_areas');
+        } catch (\Throwable $e) {
+            Log::info('Areas refresh ping to FastAPI failed (non-fatal): ' . $e->getMessage());
+        }
+    }
+
+    public function getAreas()
+    {
+        $areas = Area::orderBy('id')->get();
+        return response()->json(['data' => $areas]);
+    }
+
+    public function createArea(Request $request)
+    {
+        $validated = $request->validate([
+            'name'                => 'required|string|unique:areas,name',
+            'price_per_perch_lkr' => 'required|integer|min:0',
+            'rent_indicative_lkr' => 'required|integer|min:0',
+            'footfall_weight'     => 'required|numeric|min:0|max:1',
+            'competition_weight'  => 'required|numeric|min:0|max:1',
+            'latitude'            => 'nullable|numeric',
+            'longitude'           => 'nullable|numeric',
+            'tags'                => 'nullable|array',
+            'customer_types'      => 'nullable|array',
+            'best_for'            => 'nullable|array',
+            'main_risk'           => 'nullable|string',
+            'strategy'            => 'nullable|string',
+            'recommended_action'  => 'nullable|string',
+            'data_completeness'   => 'sometimes|integer|min:1|max:5',
+        ]);
+
+        $area = Area::create($validated);
+        $this->refreshMlCache();
+        return response()->json(['data' => $area], 201);
+    }
+
+    public function updateArea(Request $request, $id)
+    {
+        $area = Area::findOrFail($id);
+        $validated = $request->validate([
+            'name'                => 'sometimes|string|unique:areas,name,' . $id,
+            'price_per_perch_lkr' => 'sometimes|integer|min:0',
+            'rent_indicative_lkr' => 'sometimes|integer|min:0',
+            'footfall_weight'     => 'sometimes|numeric|min:0|max:1',
+            'competition_weight'  => 'sometimes|numeric|min:0|max:1',
+            'latitude'            => 'nullable|numeric',
+            'longitude'           => 'nullable|numeric',
+            'tags'                => 'nullable|array',
+            'customer_types'      => 'nullable|array',
+            'best_for'            => 'nullable|array',
+            'main_risk'           => 'nullable|string',
+            'strategy'            => 'nullable|string',
+            'recommended_action'  => 'nullable|string',
+            'data_completeness'   => 'sometimes|integer|min:1|max:5',
+        ]);
+
+        $area->update($validated);
+        $this->refreshMlCache();
+        return response()->json(['data' => $area]);
+    }
+
+    public function deleteArea($id)
+    {
+        $area = Area::findOrFail($id);
+        $area->delete();
+        $this->refreshMlCache();
+        return response()->json(['message' => 'Area deleted successfully']);
     }
 }

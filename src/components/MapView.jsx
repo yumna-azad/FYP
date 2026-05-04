@@ -1,20 +1,11 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Fix default icon issue in many bundlers
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-
-// @ts-ignore
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
+// Default Leaflet icon configuration is performed once at app startup
+// in src/main.jsx so it runs before any map component renders.
+// Reuse a single instance instead of constructing a new one per Marker.
+const DEFAULT_ICON = new L.Icon.Default();
 
 // Module-level cache so identical pin configs reuse the same L.divIcon instance
 // across re-renders. Without this, Leaflet throws "_leaflet_events" on cleanup
@@ -106,9 +97,11 @@ export default function MapView({ locations = [], center, zoom = defaultZoom, se
 
       {locations.map((loc) => {
         const selected = loc.id === selectedId;
+        // Always provide a real icon — passing `undefined` to <Marker icon> makes
+        // Leaflet's _initIcon crash with "Cannot read properties of undefined (reading 'createIcon')".
         const icon = loc.scoreColor
           ? getCachedIcon(loc.scoreColor, String(loc.rank ?? ""), selected)
-          : undefined;
+          : DEFAULT_ICON;
 
         return (
           <Marker

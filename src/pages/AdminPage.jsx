@@ -78,7 +78,7 @@ const defaultBusinessTypes = [
 ];
 
 const defaultLocations = [
-  { id: "1", name: "Town Centre – Main Street", address: "Main Street, Nuwara Eliya 22200", type: "Commercial District", score: 92 },
+  { id: "1", name: "Town Centre - Main Street", address: "Main Street, Nuwara Eliya 22200", type: "Commercial District", score: 92 },
 ];
 
 function loadData(key, defaultData) {
@@ -96,8 +96,8 @@ function saveData(key, data) {
 // Mock transaction history for admin management
 const defaultTransactions = [
   { id: "t1", date: "2024-01-15", user: "John Smith", type: "Subscription Pro", amount: "LKR 9,990", status: "Completed" },
-  { id: "t2", date: "2024-01-14", user: "Sarah Johnson", type: "Free tier", amount: "—", status: "Active" },
-  { id: "t3", date: "2024-01-12", user: "Admin", type: "Location export", amount: "—", status: "Completed" },
+  { id: "t2", date: "2024-01-14", user: "Sarah Johnson", type: "Free tier", amount: ".", status: "Active" },
+  { id: "t3", date: "2024-01-12", user: "Admin", type: "Location export", amount: ".", status: "Completed" },
   { id: "t4", date: "2024-01-10", user: "System", type: "Plan renewal", amount: "LKR 9,990", status: "Completed" },
 ];
 
@@ -137,6 +137,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState([]);
   const [businessTypes, setBusinessTypes] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [areas, setAreas] = useState([]); // Nuwara Eliya neighbourhood data used by ML service
   const [plans, setPlans] = useState([]);
   const [stats, setStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -180,8 +181,8 @@ export default function AdminPage() {
         setAnalytics(null);
         setSubmissions([]);
       } else {
-        // Fetch from Laravel/MySQL – when user inputs something, admin sees it here
-        const [usersData, businessTypesData, locationsData, plansData, statsData, analyticsData, submissionsData] = await Promise.all([
+        // Fetch from Laravel/MySQL - when user inputs something, admin sees it here
+        const [usersData, businessTypesData, locationsData, plansData, statsData, analyticsData, submissionsData, areasData] = await Promise.all([
           adminAPI.getUsers().catch(() => ({ data: [] })),
           adminAPI.getBusinessTypes().catch(() => ({ data: [] })),
           adminAPI.getLocations().catch(() => ({ data: [] })),
@@ -189,6 +190,7 @@ export default function AdminPage() {
           adminAPI.getStats().catch(() => null),
           adminAPI.getAnalytics().catch(() => null),
           adminAPI.getSubmissions().catch(() => ({ data: [] })),
+          adminAPI.getAreas().catch(() => ({ data: [] })),
         ]);
 
         setUsers(usersData.data || usersData || []);
@@ -196,6 +198,7 @@ export default function AdminPage() {
         setLocations(locationsData.data || locationsData || []);
         setPlans(plansData.data || plansData || []);
         setSubmissions(submissionsData.data || submissionsData || []);
+        setAreas(areasData.data || areasData || []);
         setStats(statsData || {
           totalUsers: String(usersData.data?.length || 0),
           businessTypes: String(businessTypesData.data?.length || 0),
@@ -241,6 +244,22 @@ export default function AdminPage() {
     }
     if (type === "business") setForm({ name: "", count: "", growth: "+0%" });
     if (type === "location") setForm({ name: "", address: "", type: "", score: "" });
+    if (type === "area") setForm({
+      name: "",
+      rent_indicative_lkr: 0,
+      price_per_perch_lkr: 0,
+      footfall_weight: 0.5,
+      competition_weight: 0.5,
+      latitude: null,
+      longitude: null,
+      tags: [],
+      customer_types: [],
+      best_for: [],
+      main_risk: "",
+      strategy: "",
+      recommended_action: "",
+      data_completeness: 3,
+    });
     setDialogOpen(true);
   };
 
@@ -293,6 +312,30 @@ export default function AdminPage() {
         }
       }
       
+      if (dialogType === "area") {
+        const payload = {
+          ...form,
+          rent_indicative_lkr: Number(form.rent_indicative_lkr) || 0,
+          price_per_perch_lkr: Number(form.price_per_perch_lkr) || 0,
+          footfall_weight: Number(form.footfall_weight) || 0,
+          competition_weight: Number(form.competition_weight) || 0,
+          latitude: form.latitude !== "" && form.latitude !== null ? Number(form.latitude) : null,
+          longitude: form.longitude !== "" && form.longitude !== null ? Number(form.longitude) : null,
+          data_completeness: Number(form.data_completeness) || 3,
+          // Normalise comma-separated chip strings → arrays if user typed commas.
+          tags: Array.isArray(form.tags) ? form.tags : String(form.tags || "").split(",").map((s) => s.trim()).filter(Boolean),
+          customer_types: Array.isArray(form.customer_types) ? form.customer_types : String(form.customer_types || "").split(",").map((s) => s.trim()).filter(Boolean),
+          best_for: Array.isArray(form.best_for) ? form.best_for : String(form.best_for || "").split(",").map((s) => s.trim()).filter(Boolean),
+        };
+        if (!payload.name) return;
+        if (editingId) {
+          await adminAPI.updateArea(editingId, payload);
+        } else {
+          await adminAPI.createArea(payload);
+        }
+        await loadAllData();
+      }
+
       if (dialogType === "location") {
         const { name, address, type, score } = form;
         if (!name) return;
@@ -332,6 +375,7 @@ export default function AdminPage() {
         if (type === "user") await adminAPI.deleteUser(id);
         if (type === "business") await adminAPI.deleteBusinessType(id);
         if (type === "location") await adminAPI.deleteLocation(id);
+        if (type === "area") await adminAPI.deleteArea(id);
         await loadAllData();
       }
     } catch (err) {
@@ -379,9 +423,22 @@ export default function AdminPage() {
               Admin management: users, business types, locations, transactions
             </Typography>
           </Box>
-          {(tab === "users" || tab === "business" || tab === "locations") && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => openCreate(tab === "users" ? "user" : tab === "business" ? "business" : "location")} sx={{ borderRadius: 2 }}>
-              {tab === "users" ? "Add User" : tab === "business" ? "Add Business Type" : "Add Location"}
+          {(tab === "users" || tab === "business" || tab === "locations" || tab === "areas") && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => openCreate(
+                tab === "users" ? "user" :
+                tab === "business" ? "business" :
+                tab === "areas" ? "area" :
+                "location"
+              )}
+              sx={{ borderRadius: 2 }}
+            >
+              {tab === "users" ? "Add User" :
+               tab === "business" ? "Add Business Type" :
+               tab === "areas" ? "Add Area" :
+               "Add Location"}
             </Button>
           )}
         </Box>
@@ -435,8 +492,8 @@ export default function AdminPage() {
                   { label: "Total Revenue", value: "LKR 19.9K", change: "+18%", icon: AttachMoneyIcon, color: SPARKLINE_COLORS[1], spark: [4, 5, 6, 7, 8, 9, 10] },
                   { label: "Locations", value: stats?.locations ?? locations.length, change: "+0%", icon: PlaceIcon, color: SPARKLINE_COLORS[2], spark: [1, 2, 2, 3, 3, 3, 4] },
                   { label: "Business Types", value: stats?.businessTypes ?? businessTypes.length, change: "+0%", icon: StoreIcon, color: SPARKLINE_COLORS[3], spark: [3, 4, 5, 5, 5, 5, 5] },
-                  { label: "User Inputs", value: submissions.length, change: useMock ? "—" : "—", icon: TimelineIcon, color: SPARKLINE_COLORS[0], spark: [0, 1, 2, 2, 3, 3, 4] },
-                  { label: "Transactions", value: transactions.length, change: "—", icon: ReceiptLongIcon, color: SPARKLINE_COLORS[4], spark: [2, 3, 3, 4, 4, 4, 4] },
+                  { label: "User Inputs", value: submissions.length, change: useMock ? "." : ".", icon: TimelineIcon, color: SPARKLINE_COLORS[0], spark: [0, 1, 2, 2, 3, 3, 4] },
+                  { label: "Transactions", value: transactions.length, change: ".", icon: ReceiptLongIcon, color: SPARKLINE_COLORS[4], spark: [2, 3, 3, 4, 4, 4, 4] },
                 ].map((k, idx) => (
                   <Grid item xs={6} md={4} lg={2} key={k.label}>
                     <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, height: "100%" }}>
@@ -711,7 +768,7 @@ export default function AdminPage() {
                         <TableCell sx={{ fontWeight: 600 }}>{type.name}</TableCell>
                         <TableCell>{type.count}</TableCell>
                         <TableCell>
-                          <Chip label={type.growth || "—"} size="small" sx={{ bgcolor: "rgba(5, 150, 105, 0.12)", color: "success.main" }} />
+                          <Chip label={type.growth || "."} size="small" sx={{ bgcolor: "rgba(5, 150, 105, 0.12)", color: "success.main" }} />
                         </TableCell>
                         <TableCell align="right">
                           <IconButton size="small" onClick={() => openEdit("business", type)}>
@@ -793,7 +850,65 @@ export default function AdminPage() {
             </Box>
           )}
 
-          {/* User Inputs Tab – when user inputs something (Laravel + MySQL), admin sees it here */}
+          {/* Areas Tab . Nuwara Eliya neighbourhoods. The ML service fetches this data
+              with a 5-minute cache; admin edits trigger an immediate cache invalidation. */}
+          {tab === "areas" && (
+            <Box sx={{ p: 3 }}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="h6" fontWeight={600}>
+                  Nuwara Eliya Areas (ML reference data)
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  This is the area data the ML service uses for per-area predictions.
+                  Edits here change the recommendation page within ~5 minutes (or instantly via the cache-refresh hook).
+                </Typography>
+              </Box>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 600 }}>Area</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }} align="right">Rent / mo</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }} align="right">Footfall</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }} align="right">Competition</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }} align="right">Data</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Best for</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {areas.map((a) => (
+                    <TableRow key={a.id} hover>
+                      <TableCell sx={{ fontWeight: 600 }}>{a.name}</TableCell>
+                      <TableCell align="right">LKR {Number(a.rent_indicative_lkr || 0).toLocaleString()}</TableCell>
+                      <TableCell align="right">{Number(a.footfall_weight || 0).toFixed(2)}</TableCell>
+                      <TableCell align="right">{Number(a.competition_weight || 0).toFixed(2)}</TableCell>
+                      <TableCell align="right">{a.data_completeness ?? 3} / 5</TableCell>
+                      <TableCell sx={{ fontSize: "0.8125rem", color: "text.secondary" }}>
+                        {Array.isArray(a.best_for) ? a.best_for.slice(0, 3).join(", ") : ""}
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" onClick={() => openEdit("area", a)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" color="error" onClick={() => handleDelete("area", a.id)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {areas.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} sx={{ textAlign: "center", color: "text.secondary", py: 4 }}>
+                        No areas yet. Click "Add Area" to add one, or run <code>php artisan db:seed --class=AreaSeeder</code> to load the 12 default Nuwara Eliya neighbourhoods.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
+
+          {/* User Inputs Tab - when user inputs something (Laravel + MySQL), admin sees it here */}
           {tab === "inputs" && (
             <Box sx={{ p: 3 }}>
               <Box sx={{ mb: 2 }}>
@@ -834,7 +949,7 @@ export default function AdminPage() {
                       submissions.map((s) => (
                         <TableRow key={s.id} hover>
                           <TableCell>
-                            <Typography variant="body2" fontWeight={600}>{s.user_name || s.user_email || "—"}</Typography>
+                            <Typography variant="body2" fontWeight={600}>{s.user_name || s.user_email || "."}</Typography>
                             {s.user_email && <Typography variant="caption" color="text.secondary">{s.user_email}</Typography>}
                           </TableCell>
                           <TableCell>{s.business_type}</TableCell>
@@ -846,7 +961,7 @@ export default function AdminPage() {
                           <TableCell>{s.amount}</TableCell>
                           <TableCell>
                             <Typography variant="caption" color="text.secondary">
-                              {s.created_at ? new Date(s.created_at).toLocaleString() : "—"}
+                              {s.created_at ? new Date(s.created_at).toLocaleString() : "."}
                             </Typography>
                           </TableCell>
                         </TableRow>
@@ -1252,6 +1367,60 @@ export default function AdminPage() {
                 <TextField fullWidth label="Address" value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} margin="dense" />
                 <TextField fullWidth label="Type" value={form.type || ""} onChange={(e) => setForm({ ...form, type: e.target.value })} margin="dense" placeholder="e.g. Commercial District" />
                 <TextField fullWidth label="Score" type="number" value={form.score || ""} onChange={(e) => setForm({ ...form, score: e.target.value })} margin="dense" inputProps={{ min: 0, max: 100 }} />
+              </>
+            )}
+            {dialogType === "area" && (
+              <>
+                <TextField fullWidth label="Area name" value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} margin="dense" required />
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+                  <TextField label="Typical rent / month (LKR)" type="number" value={form.rent_indicative_lkr ?? ""} onChange={(e) => setForm({ ...form, rent_indicative_lkr: e.target.value })} margin="dense" inputProps={{ min: 0 }} />
+                  <TextField label="Typical price / perch (LKR)" type="number" value={form.price_per_perch_lkr ?? ""} onChange={(e) => setForm({ ...form, price_per_perch_lkr: e.target.value })} margin="dense" inputProps={{ min: 0 }} />
+                </Box>
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+                  <TextField label="Footfall weight (0-1)" type="number" value={form.footfall_weight ?? 0.5} onChange={(e) => setForm({ ...form, footfall_weight: e.target.value })} margin="dense" inputProps={{ min: 0, max: 1, step: 0.05 }} helperText="Walk-in customer pool. 1 = busiest tourist area." />
+                  <TextField label="Competition weight (0-1)" type="number" value={form.competition_weight ?? 0.5} onChange={(e) => setForm({ ...form, competition_weight: e.target.value })} margin="dense" inputProps={{ min: 0, max: 1, step: 0.05 }} helperText="Density of similar businesses. 1 = highly saturated." />
+                </Box>
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+                  <TextField label="Latitude" type="number" value={form.latitude ?? ""} onChange={(e) => setForm({ ...form, latitude: e.target.value })} margin="dense" inputProps={{ step: 0.0001 }} />
+                  <TextField label="Longitude" type="number" value={form.longitude ?? ""} onChange={(e) => setForm({ ...form, longitude: e.target.value })} margin="dense" inputProps={{ step: 0.0001 }} />
+                </Box>
+                <TextField
+                  fullWidth
+                  label="Tags (comma-separated)"
+                  value={Array.isArray(form.tags) ? form.tags.join(", ") : (form.tags || "")}
+                  onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                  margin="dense"
+                  placeholder="e.g. high traffic, near bus stand"
+                />
+                <TextField
+                  fullWidth
+                  label="Likely customer types (comma-separated)"
+                  value={Array.isArray(form.customer_types) ? form.customer_types.join(", ") : (form.customer_types || "")}
+                  onChange={(e) => setForm({ ...form, customer_types: e.target.value })}
+                  margin="dense"
+                  placeholder="e.g. tourists, local workers, students"
+                />
+                <TextField
+                  fullWidth
+                  label="Best for (comma-separated)"
+                  value={Array.isArray(form.best_for) ? form.best_for.join(", ") : (form.best_for || "")}
+                  onChange={(e) => setForm({ ...form, best_for: e.target.value })}
+                  margin="dense"
+                  placeholder="e.g. cafe, bakery, retail shop"
+                />
+                <TextField fullWidth multiline minRows={2} label="Main risk" value={form.main_risk || ""} onChange={(e) => setForm({ ...form, main_risk: e.target.value })} margin="dense" />
+                <TextField fullWidth multiline minRows={3} label="Business strategy" value={form.strategy || ""} onChange={(e) => setForm({ ...form, strategy: e.target.value })} margin="dense" />
+                <TextField fullWidth multiline minRows={2} label="Recommended action" value={form.recommended_action || ""} onChange={(e) => setForm({ ...form, recommended_action: e.target.value })} margin="dense" />
+                <TextField
+                  label="Data completeness (1-5)"
+                  type="number"
+                  value={form.data_completeness ?? 3}
+                  onChange={(e) => setForm({ ...form, data_completeness: e.target.value })}
+                  margin="dense"
+                  inputProps={{ min: 1, max: 5 }}
+                  helperText="Drives the per-card Confidence label. 5 = rich data, 1 = limited."
+                  sx={{ width: 240 }}
+                />
               </>
             )}
           </DialogContent>

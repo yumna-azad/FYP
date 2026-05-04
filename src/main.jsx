@@ -2,8 +2,23 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import App from "./App.jsx";
 import "./styles.css";
+
+// Configure Leaflet's default icon BEFORE any map component renders.
+// Vite mangles the relative URLs Leaflet tries to autodetect, so we wire
+// the imported asset URLs in directly. Without this, Markers throw
+// "Cannot read properties of undefined (reading 'createIcon')".
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
 
 // Defensive patch: Leaflet's Marker._removeIcon can throw during React
 // StrictMode's double-unmount (dev only) when this._icon has already been

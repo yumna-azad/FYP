@@ -10,16 +10,16 @@ class BusinessTypeSeeder extends Seeder
     public function run(): void
     {
         $types = [
-            ['name' => 'Cafe', 'slug' => 'cafe', 'competition_count' => 164],
-            ['name' => 'Hotel', 'slug' => 'hotel', 'competition_count' => 1014],
-            ['name' => 'Restaurant', 'slug' => 'restaurant', 'competition_count' => 163],
-            ['name' => 'Retail Shop', 'slug' => 'retail', 'competition_count' => 97],
-            ['name' => 'Wellness Center', 'slug' => 'wellness', 'competition_count' => 70],
+            ['name' => 'Café',            'count' => 164,  'growth' => '+12%'],
+            ['name' => 'Hotel',           'count' => 1014, 'growth' => '+8%'],
+            ['name' => 'Restaurant',      'count' => 163,  'growth' => '+15%'],
+            ['name' => 'Retail Shop',     'count' => 97,   'growth' => '+6%'],
+            ['name' => 'Wellness Center', 'count' => 70,   'growth' => '+9%'],
         ];
 
         foreach ($types as $type) {
             BusinessType::updateOrCreate(
-                ['slug' => $type['slug']],
+                ['name' => $type['name']],
                 $type
             );
         }

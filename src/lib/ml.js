@@ -1,8 +1,9 @@
 // Client for the SmartLoc XGBoost inference service (backend/ml/server.py).
 // Set VITE_ML_API_URL in .env to override the default localhost endpoint.
 
+// Default matches backend/ml/server.py which runs on 127.0.0.1:8001.
 const ML_API_URL =
-  import.meta.env.VITE_ML_API_URL || "http://127.0.0.1:9191";
+  import.meta.env.VITE_ML_API_URL || "http://127.0.0.1:8001";
 
 export async function fetchRecommendations(payload) {
   const body = {
@@ -31,5 +32,16 @@ export async function checkMlHealth() {
     return await res.json();
   } catch (e) {
     return { status: "error", model_loaded: false, error: String(e) };
+  }
+}
+
+// Confirms the SHAP TreeExplainer is loaded and returns its base value
+// (the model's average prediction). Used by the UI verification badge.
+export async function checkShapHealth() {
+  try {
+    const res = await fetch(`${ML_API_URL}/api/ml/shap_health`);
+    return await res.json();
+  } catch (e) {
+    return { status: "error", library: "shap", error: String(e) };
   }
 }

@@ -28,6 +28,10 @@ class AuthController extends Controller
             ]);
         }
 
+        // Track last login so admin dashboard "Last Active" column populates.
+        $user->last_active_at = now();
+        $user->save();
+
         // Create Sanctum token
         $token = $user->createToken('smartloc-api')->plainTextToken;
 
