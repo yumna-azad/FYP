@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\AreaController;
 use App\Http\Controllers\Api\SocialMediaController;
 use App\Http\Controllers\Api\SubmissionController;
 
@@ -25,6 +26,10 @@ Route::middleware(['auth:sanctum'])->post('/submissions', [SubmissionController:
 
 // Public social media links
 Route::get('/social-media', [SocialMediaController::class, 'getSocialMedia']);
+
+// Public read of Nuwara Eliya neighbourhood data — FastAPI's ML service
+// fetches from this endpoint. Public so the ML service doesn't need a token.
+Route::get('/areas', [AreaController::class, 'index']);
 
 // Admin: Update social media links
 Route::middleware(['auth:sanctum', 'admin'])->put('/admin/social-media', [SocialMediaController::class, 'updateSocialMedia']);
@@ -63,4 +68,11 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
 
     // User inputs (Location Finder submissions) – auto-shown when user submits
     Route::get('/submissions', [AdminController::class, 'getSubmissions']);
+
+    // Areas (Nuwara Eliya neighbourhoods) — admin can edit area data that
+    // FastAPI uses for the per-area XGBoost feature substitution.
+    Route::get('/areas', [AdminController::class, 'getAreas']);
+    Route::post('/areas', [AdminController::class, 'createArea']);
+    Route::put('/areas/{id}', [AdminController::class, 'updateArea']);
+    Route::delete('/areas/{id}', [AdminController::class, 'deleteArea']);
 });

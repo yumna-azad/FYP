@@ -95,7 +95,7 @@ export default function ExplorePage() {
             </TextField>
             <TextField
               select
-              label="Preferred footfall"
+              label="Preferred walk-in customers"
               fullWidth
               size="small"
               defaultValue="medium"

@@ -3,7 +3,7 @@
  * Database: smartloc
  */
 
-const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 /**
  * Get auth token from localStorage
@@ -74,6 +74,13 @@ export const adminAPI = {
   updateLocation: (id, data) => apiRequest(`/api/admin/locations/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteLocation: (id) => apiRequest(`/api/admin/locations/${id}`, { method: "DELETE" }),
 
+  // Areas (Nuwara Eliya neighbourhoods) — admin can edit the data the
+  // FastAPI ML service uses for per-area XGBoost feature substitution.
+  getAreas: () => apiRequest("/api/admin/areas"),
+  createArea: (data) => apiRequest("/api/admin/areas", { method: "POST", body: JSON.stringify(data) }),
+  updateArea: (id, data) => apiRequest(`/api/admin/areas/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteArea: (id) => apiRequest(`/api/admin/areas/${id}`, { method: "DELETE" }),
+
   // Subscription Plans (dynamic)
   getPlans: () => apiRequest("/api/admin/plans"),
   createPlan: (data) => apiRequest("/api/admin/plans", { method: "POST", body: JSON.stringify(data) }),
@@ -93,19 +100,17 @@ export const adminAPI = {
 export async function submitLocationFinder(payload) {
   const body = {
     business_type: payload.businessType,
-    proximity: payload.proximity,
-    traffic: payload.traffic,
-    competition: payload.competition,
-    internet_coverage: payload.internetCoverage,
     land_intent: payload.landIntent,
-    amount: String(payload.amount),
+    budget: Number(payload.amount) || 0,
+    preferred_area: payload.preferredArea || null,
   };
   return apiRequest("/api/submissions", { method: "POST", body: JSON.stringify(body) });
 }
 
 /**
- * Fallback to localStorage if API is not available (for development)
+ * Always API-backed now. Kept for backward compatibility with any callers
+ * that still import this — returns false because there is no mock fallback.
  */
 export function useMockData() {
-  return !API_BASE;
+  return false;
 }

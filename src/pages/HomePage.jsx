@@ -1,24 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
-  Chip,
   Container,
-  Grid,
   IconButton,
-  Paper,
   Stack,
-  Typography
+  Typography,
 } from "@mui/material";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
-import BoltIcon from "@mui/icons-material/Bolt";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
-import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
-import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
-import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
-import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
+import ArrowOutwardIcon from "@mui/icons-material/ArrowOutward";
 import PhoneIcon from "@mui/icons-material/Phone";
 import EmailIcon from "@mui/icons-material/Email";
 import EventIcon from "@mui/icons-material/Event";
@@ -26,15 +20,56 @@ import InstagramIcon from "@mui/icons-material/Instagram";
 import TwitterIcon from "@mui/icons-material/Twitter";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
-import { CONTACT_PHONE, CONTACT_EMAIL, GOOGLE_CALENDAR_MEETING_URL, getPhoneLink, getEmailLink, getContactPhone } from "../lib/contact.js";
+import {
+  CONTACT_PHONE,
+  CONTACT_EMAIL,
+  GOOGLE_CALENDAR_MEETING_URL,
+  getPhoneLink,
+  getEmailLink,
+  getContactPhone,
+} from "../lib/contact.js";
 import { getSocialMediaLinks, getWhatsAppLink } from "../lib/socialMedia.js";
 
+const MotionBox = motion(Box);
+
+const HERO_IMAGE = "/images/hero/real-tea-plantations.jpg";
+
+const ease = [0.22, 1, 0.36, 1];
+
+const reveal = {
+  hidden: { opacity: 0, y: 28 },
+  show: (i = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.9, ease, delay: 0.1 + i * 0.08 },
+  }),
+};
+
+const staggerParent = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+};
+
+const staggerChild = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease } },
+};
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const { mode } = useTheme();
+  const isDark = mode === "dark";
   const userName = user?.name || user?.email;
+
+  const heroRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"],
+  });
+  const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "18%"]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
+
   const [socialMedia, setSocialMedia] = useState({
     instagram: "https://instagram.com/smartloc",
     twitter: "https://twitter.com/smartloc",
@@ -45,709 +80,495 @@ export default function HomePage() {
   const [contactPhone, setContactPhone] = useState(CONTACT_PHONE);
 
   useEffect(() => {
-    getSocialMediaLinks().then((links) => {
-      setSocialMedia(links);
-      if (links.phone) {
-        setContactPhone(links.phone);
-      }
-    }).catch((err) => {
-      console.warn("Failed to load social media links:", err);
-      // Keep default values
-    });
-    
-    // Also fetch phone separately for contact section
-    getContactPhone().then(setContactPhone).catch(() => {
-      // Keep default
-    });
+    getSocialMediaLinks()
+      .then((links) => {
+        setSocialMedia(links);
+        if (links.phone) setContactPhone(links.phone);
+      })
+      .catch(() => {});
+    getContactPhone().then(setContactPhone).catch(() => {});
   }, []);
 
+  const ink = isDark ? "#f5f3ee" : "#0a0a0a";
+  const inkSoft = isDark ? "rgba(245,243,238,0.64)" : "rgba(10,10,10,0.62)";
+  const hair = isDark ? "rgba(245,243,238,0.12)" : "rgba(10,10,10,0.12)";
+  const surface = isDark ? "#0b0f0e" : "#faf8f3";
+
   return (
-    <Box
-      sx={{
-        height: "100%",
-        overflowY: "auto",
-        overflowX: "hidden"
-      }}
-    >
-      {/* Hero */}
+    <Box sx={{ height: "100%", overflowY: "auto", overflowX: "hidden", bgcolor: surface }}>
+      {/* ------------------------------ HERO ------------------------------ */}
       <Box
+        ref={heroRef}
         sx={{
           position: "relative",
-          py: { xs: 6, md: 10 },
-          px: 2,
-          minHeight: { xs: "70vh", md: "75vh" },
+          minHeight: { xs: "92vh", md: "100vh" },
           display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: mode === "dark" 
-            ? `
-                linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 50%, rgba(15, 23, 42, 0.98) 100%),
-                radial-gradient(ellipse 80% 50% at 70% 80%, rgba(13, 148, 136, 0.15), transparent),
-                radial-gradient(ellipse 60% 40% at 90% 20%, rgba(13, 148, 136, 0.1), transparent)
-              `
-            : `
-                linear-gradient(135deg, rgba(224, 242, 254, 0.6) 0%, rgba(240, 253, 250, 0.4) 50%, rgba(255,255,255,0.9) 100%),
-                radial-gradient(ellipse 80% 50% at 70% 80%, rgba(6, 182, 212, 0.08), transparent),
-                radial-gradient(ellipse 60% 40% at 90% 20%, rgba(13, 148, 136, 0.06), transparent)
-              `,
-          borderRadius: 3,
-          border: mode === "dark" ? "1px solid rgba(148, 163, 184, 0.1)" : "none",
+          alignItems: "flex-end",
+          overflow: "hidden",
+          color: "#f5f3ee",
         }}
       >
-        <Container maxWidth="md">
-          <Stack alignItems="center" textAlign="center" spacing={3}>
+        <MotionBox
+          style={{ y: heroY, opacity: heroOpacity }}
+          sx={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: `url(${HERO_IMAGE})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            transform: "scale(1.08)",
+            filter: "saturate(0.9) contrast(1.02)",
+          }}
+        />
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(180deg, rgba(8,12,14,0.35) 0%, rgba(8,12,14,0.55) 55%, rgba(8,12,14,0.88) 100%)",
+          }}
+        />
+        <Box className="hero-grain" />
+
+        <Container maxWidth="lg" sx={{ position: "relative", zIndex: 2, pb: { xs: 8, md: 12 }, pt: { xs: 14, md: 18 } }}>
+          <motion.div initial="hidden" animate="show" variants={staggerParent}>
+            <motion.div variants={staggerChild}>
+              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 3, opacity: 0.85 }}>
+                <Box sx={{ width: 28, height: 1, bgcolor: "rgba(245,243,238,0.6)" }} />
+                <Typography
+                  variant="overline"
+                  sx={{ letterSpacing: "0.28em", fontSize: 11, color: "rgba(245,243,238,0.85)", fontWeight: 500 }}
+                >
+                  SmartLoc · Nuwara Eliya
+                </Typography>
+              </Stack>
+            </motion.div>
+
             {isAuthenticated && userName && (
-              <Typography variant="subtitle1" fontWeight={600} color="primary.main" sx={{ animation: "fadeInUp 0.7s ease-out both" }}>
-                Hi, {userName}
-              </Typography>
+              <motion.div variants={staggerChild}>
+                <Typography sx={{ fontSize: 14, color: "rgba(245,243,238,0.75)", mb: 2, letterSpacing: "0.02em" }}>
+                  Welcome back, {userName.split("@")[0]}.
+                </Typography>
+              </motion.div>
             )}
-            <Chip
-              icon={<BoltIcon sx={{ fontSize: 18, color: "primary.main" }} />}
-              label="For Businesses · Nuwara Eliya"
-              sx={{
-                bgcolor: "rgba(13, 148, 136, 0.1)",
-                color: "text.primary",
-                fontWeight: 600,
-                border: "1px solid",
-                borderColor: "primary.main",
-                "& .MuiChip-icon": { ml: 0.5 }
-              }}
-              className="home-animate-in"
-            />
-            <Typography
-              variant="h3"
-              fontWeight={800}
-              sx={{
-                fontSize: { xs: "1.75rem", sm: "2.25rem", md: "2.75rem" },
-                lineHeight: 1.2,
-                color: "text.primary",
-                animation: "fadeInUp 0.7s ease-out both",
-                animationDelay: "0.1s"
-              }}
-            >
-              Find the{" "}
-              <Box
-                component="span"
+
+            <motion.div variants={staggerChild}>
+              <Typography
+                className="font-display"
                 sx={{
-                  background: (t) =>
-                    `linear-gradient(90deg, ${t.palette.primary.main}, ${t.palette.primary.light})`,
-                  backgroundClip: "text",
-                  WebkitBackgroundClip: "text",
-                  color: "transparent",
-                  fontWeight: 800
+                  fontSize: { xs: "2.75rem", sm: "3.75rem", md: "5.25rem", lg: "6rem" },
+                  lineHeight: 0.98,
+                  fontWeight: 400,
+                  color: "#f5f3ee",
+                  maxWidth: 1000,
+                  letterSpacing: "-0.035em",
                 }}
               >
-                Right Location in Nuwara Eliya
-              </Box>{" "}
-              for Your Business Type
-            </Typography>
-            <Typography
-              variant="body1"
-              maxWidth="560px"
-              sx={{
-                fontSize: { xs: "0.95rem", md: "1rem" },
-                color: mode === "dark" ? "#e2e8f0" : "text.secondary",
-                animation: "fadeInUp 0.7s ease-out both",
-                animationDelay: "0.2s"
-              }}
-            >
-              This site is for businesses to find the correct location in Nuwara Eliya according to their business type. Choose café, hotel, restaurant, retail, wellness, or more—then get data-driven recommendations for the best spot.
-            </Typography>
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={2}
-              sx={{
-                animation: "fadeInUp 0.7s ease-out both",
-                animationDelay: "0.3s"
-              }}
-            >
-              <Button
-                variant="contained"
-                size="large"
-                endIcon={<ArrowForwardIcon />}
-                onClick={() => navigate("/dashboard")}
+                The right place{" "}
+                <Box component="em" sx={{ fontStyle: "italic", fontWeight: 400, opacity: 0.95 }}>
+                  for every
+                </Box>{" "}
+                business,<br />decided by data.
+              </Typography>
+            </motion.div>
+
+            <motion.div variants={staggerChild}>
+              <Typography
                 sx={{
-                  background: (t) =>
-                    `linear-gradient(90deg, ${t.palette.primary.main}, ${t.palette.primary.light})`,
-                  color: "#fff",
-                  borderRadius: 3,
-                  px: 3,
-                  py: 1.5,
-                  fontWeight: 700,
-                  boxShadow: (t) => `0 4px 14px ${t.palette.primary.main}66`,
-                  "&:hover": {
-                    background: (t) =>
-                      `linear-gradient(90deg, ${t.palette.primary.dark}, ${t.palette.primary.main})`,
-                    boxShadow: (t) => `0 6px 20px ${t.palette.primary.main}77`
-                  }
+                  mt: 4,
+                  maxWidth: 560,
+                  fontSize: { xs: "1rem", md: "1.0625rem" },
+                  lineHeight: 1.55,
+                  color: "rgba(245,243,238,0.78)",
+                  fontWeight: 300,
                 }}
               >
-                Free tier
-              </Button>
-              <Button
-                variant="outlined"
-                size="large"
-                onClick={() => navigate("/subscribe")}
-                sx={{
-                  borderRadius: 3,
-                  px: 3,
-                  py: 1.5,
-                  borderColor: mode === "dark" ? "primary.light" : "secondary.main",
-                  color: mode === "dark" ? "primary.light" : "secondary.dark",
-                  fontWeight: 600,
-                  borderWidth: 2,
-                  "&:hover": {
-                    borderColor: "primary.main",
-                    color: "primary.main",
-                    backgroundColor: mode === "dark" ? "rgba(13, 148, 136, 0.12)" : "rgba(13, 148, 136, 0.06)",
-                    borderWidth: 2,
-                  }
-                }}
-              >
-                Upgrade to Pro
-              </Button>
-            </Stack>
-          </Stack>
+                A location intelligence platform built for Nuwara Eliya. We look at how many
+                walk-in customers each area gets, how many similar businesses are nearby, and
+                what the market pays — so cafés, hotels, retail and wellness operators choose
+                with conviction.
+              </Typography>
+            </motion.div>
+
+            <motion.div variants={staggerChild}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2.5} sx={{ mt: 5 }}>
+                <Button
+                  disableElevation
+                  size="large"
+                  endIcon={<ArrowForwardIcon sx={{ fontSize: 18 }} />}
+                  onClick={() => navigate("/dashboard")}
+                  sx={{
+                    bgcolor: "#f5f3ee",
+                    color: "#0a0a0a",
+                    borderRadius: 999,
+                    px: 3.5,
+                    py: 1.5,
+                    fontSize: "0.9375rem",
+                    fontWeight: 500,
+                    textTransform: "none",
+                    letterSpacing: "-0.005em",
+                    "&:hover": { bgcolor: "#ffffff" },
+                  }}
+                >
+                  Open dashboard
+                </Button>
+                <Button
+                  size="large"
+                  onClick={() => {
+                    const el = document.getElementById("contact");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  endIcon={<ArrowOutwardIcon sx={{ fontSize: 16 }} />}
+                  sx={{
+                    color: "rgba(245,243,238,0.92)",
+                    borderRadius: 999,
+                    px: 2,
+                    py: 1.5,
+                    fontSize: "0.9375rem",
+                    fontWeight: 400,
+                    textTransform: "none",
+                    "&:hover": { bgcolor: "rgba(245,243,238,0.08)" },
+                  }}
+                >
+                  Talk to us
+                </Button>
+              </Stack>
+            </motion.div>
+          </motion.div>
         </Container>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.7 }}
+          transition={{ delay: 1.4, duration: 1 }}
+          style={{ position: "absolute", bottom: 24, right: 32, zIndex: 2 }}
+        >
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ color: "rgba(245,243,238,0.7)" }}>
+            <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase" }}>
+              Scroll
+            </Typography>
+            <Box sx={{ width: 40, height: 1, bgcolor: "rgba(245,243,238,0.5)" }} />
+          </Stack>
+        </motion.div>
       </Box>
 
-      {/* Features */}
-      <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
-        <Stack spacing={1} textAlign="center" alignItems="center" mb={4}>
-          <Typography
-            variant="h4"
-            fontWeight={700}
-            sx={{ color: "text.primary", fontSize: { xs: "1.5rem", md: "1.75rem" } }}
+      {/* --------------------------- CAPABILITIES --------------------------- */}
+      <Box sx={{ py: { xs: 10, md: 16 }, px: 2, color: ink }}>
+        <Container maxWidth="lg">
+          <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 4, md: 10 }} sx={{ mb: { xs: 6, md: 10 } }}>
+            <motion.div initial="hidden" whileInView="show" viewport={{ once: true, margin: "-15%" }} variants={reveal} custom={0}>
+              <Typography variant="overline" sx={{ letterSpacing: "0.3em", fontSize: 11, color: inkSoft, fontWeight: 500 }}>
+                01 — Capabilities
+              </Typography>
+            </motion.div>
+            <motion.div
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: "-15%" }}
+              variants={reveal}
+              custom={1}
+              style={{ flex: 1 }}
+            >
+              <Typography
+                className="font-display"
+                sx={{
+                  fontSize: { xs: "2rem", md: "3rem" },
+                  lineHeight: 1.05,
+                  fontWeight: 400,
+                  letterSpacing: "-0.025em",
+                  maxWidth: 720,
+                }}
+              >
+                Decisions worth making,{" "}
+                <Box component="em" sx={{ fontStyle: "italic", color: inkSoft }}>
+                  grounded in evidence.
+                </Box>
+              </Typography>
+            </motion.div>
+          </Stack>
+
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-10%" }}
+            variants={staggerParent}
           >
-            Everything You Need to Make Smart Decisions
-          </Typography>
-          <Typography variant="body1" maxWidth="600px" sx={{ color: mode === "dark" ? "#e2e8f0" : "text.secondary" }}>
-            Our platform combines multiple data sources to give you comprehensive
-            insights about any location in Nuwara Eliya.
-          </Typography>
-        </Stack>
-
-        <Grid container spacing={3}>
-          {[
-            {
-              title: "Business Analysis",
-              desc: "Analyze foot traffic, demographics, and market potential with AI-driven reports.",
-              icon: <AssessmentOutlinedIcon sx={{ fontSize: 32, color: "primary.main" }} />,
-              bg: "rgba(13, 148, 136, 0.12)"
-            },
-            {
-              title: "Competition Mapping",
-              desc: "See where competitors are concentrated and identify gaps and opportunities.",
-              icon: <TrendingUpOutlinedIcon sx={{ fontSize: 32, color: "warning.main" }} />,
-              bg: "rgba(234, 88, 12, 0.12)"
-            },
-            {
-              title: "Interactive Maps",
-              desc: "Visualize recommendations and scores on live maps for Nuwara Eliya.",
-              icon: <MapOutlinedIcon sx={{ fontSize: 32, color: "success.main" }} />,
-              bg: "rgba(5, 150, 105, 0.12)"
-            }
-          ].map((item) => (
-            <Grid item xs={12} md={4} key={item.title}>
-              <Paper
-                elevation={0}
-                className="home-card-hover"
-                sx={{
-                  p: 3,
-                  borderRadius: 3,
-                  height: "100%",
-                  border: mode === "dark" ? "1px solid rgba(13, 148, 136, 0.3)" : "1px solid rgba(148,163,184,0.2)",
-                  bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.6)" : "background.paper",
-                  boxShadow: mode === "dark" ? "0 4px 20px rgba(0, 0, 0, 0.3)" : "0 4px 20px rgba(15,23,42,0.06)",
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.8)" : undefined,
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 2,
-                    bgcolor: item.bg,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mb: 2
-                  }}
-                >
-                  {item.icon}
-                </Box>
-                <Typography variant="h6" fontWeight={700} gutterBottom>
-                  {item.title}
-                </Typography>
-                <Typography variant="body2" sx={{ color: mode === "dark" ? "#cbd5e1" : "text.secondary" }}>
-                  {item.desc}
-                </Typography>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
-      </Container>
-
-      {/* Nuwara Eliya */}
-      <Box
-        sx={{
-          py: { xs: 6, md: 8 },
-          px: 2,
-          bgcolor: mode === "dark" 
-            ? "rgba(15, 23, 42, 0.5)" 
-            : "rgba(240, 253, 250, 0.5)",
-          borderTop: mode === "dark" 
-            ? "1px solid rgba(148,163,184,0.1)" 
-            : "1px solid rgba(148,163,184,0.15)",
-          borderBottom: mode === "dark" 
-            ? "1px solid rgba(148,163,184,0.1)" 
-            : "1px solid rgba(148,163,184,0.15)"
-        }}
-      >
-        <Container maxWidth="md">
-          <Stack spacing={2} alignItems="center" textAlign="center" mb={4}>
-            <Chip
-              icon={<PlaceOutlinedIcon sx={{ fontSize: 18, color: "primary.main" }} />}
-              label="SmartLoc focuses on"
+            <Box
               sx={{
-                bgcolor: "rgba(13, 148, 136, 0.12)",
-                color: "text.primary",
-                fontWeight: 600,
-                "& .MuiChip-icon": { ml: 0.5 }
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" },
+                gap: 0,
+                borderTop: `1px solid ${hair}`,
               }}
-            />
-            <Typography variant="h4" fontWeight={700} sx={{ color: "text.primary" }}>
-              Why Nuwara Eliya?
-            </Typography>
-          </Stack>
-          <Grid container spacing={3} justifyContent="center">
-            <Grid item xs={12} md={4}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 2.5,
-                  borderRadius: 3,
-                  height: "100%",
-                  border: mode === "dark" ? "1px solid rgba(13, 148, 136, 0.3)" : "1px solid rgba(13, 148, 136, 0.2)",
-                  bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.6)" : "rgba(255,255,255,0.8)",
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.8)" : undefined,
-                  },
-                }}
-              >
-                <Typography variant="subtitle1" fontWeight={700} color="primary.main">
-                  Queen of the Hills
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 1, color: mode === "dark" ? "#cbd5e1" : "text.secondary" }}>
-                  Nuwara Eliya is the heart of Sri Lanka’s hill country, with a
-                  cool climate and year-round tourism—ideal for cafés, hotels,
-                  and retail.
-                </Typography>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 2.5,
-                  borderRadius: 3,
-                  height: "100%",
-                  border: mode === "dark" ? "1px solid rgba(13, 148, 136, 0.3)" : "1px solid rgba(13, 148, 136, 0.2)",
-                  bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.6)" : "rgba(255,255,255,0.8)",
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.8)" : undefined,
-                  },
-                }}
-              >
-                <Typography variant="subtitle1" fontWeight={700} color="primary.main">
-                  Tea & Tourism Hub
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 1, color: mode === "dark" ? "#cbd5e1" : "text.secondary" }}>
-                  Tea estates, Gregory Lake, and heritage sites draw visitors
-                  constantly. SmartLoc helps you place your business where
-                  footfall and spend are strongest.
-                </Typography>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 2.5,
-                  borderRadius: 3,
-                  height: "100%",
-                  border: mode === "dark" ? "1px solid rgba(13, 148, 136, 0.3)" : "1px solid rgba(13, 148, 136, 0.2)",
-                  bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.6)" : "rgba(255,255,255,0.8)",
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.8)" : undefined,
-                  },
-                }}
-              >
-                <Typography variant="subtitle1" fontWeight={700} color="primary.main">
-                  Data You Can Use
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 1, color: mode === "dark" ? "#cbd5e1" : "text.secondary" }}>
-                  We combine traffic, rent, and competition data for Nuwara Eliya
-                  so you can compare areas and pick the best spot with confidence.
-                </Typography>
-              </Paper>
-            </Grid>
-          </Grid>
+            >
+              {[
+                {
+                  n: "A",
+                  title: "Business analysis",
+                  desc: "AI reports on walk-in customers, local demographics and spending patterns — cut through the anecdote.",
+                },
+                {
+                  n: "B",
+                  title: "Competition mapping",
+                  desc: "See where rivals cluster, where they don't, and the gaps that make sense for your model.",
+                },
+                {
+                  n: "C",
+                  title: "Interactive maps",
+                  desc: "Scoring overlaid on live Nuwara Eliya geography. Zoom, compare, decide.",
+                },
+              ].map((item, i) => (
+                <motion.div key={item.title} variants={staggerChild}>
+                  <Box
+                    sx={{
+                      p: { xs: 3, md: 4 },
+                      borderBottom: `1px solid ${hair}`,
+                      borderRight: { md: i < 2 ? `1px solid ${hair}` : "none" },
+                      height: "100%",
+                      transition: "background-color 0.4s ease",
+                      "&:hover": {
+                        bgcolor: isDark ? "rgba(245,243,238,0.03)" : "rgba(10,10,10,0.02)",
+                      },
+                    }}
+                  >
+                    <Typography sx={{ fontSize: 11, letterSpacing: "0.3em", color: inkSoft, mb: 6, fontWeight: 500 }}>
+                      {item.n}
+                    </Typography>
+                    <Typography
+                      className="font-display"
+                      sx={{ fontSize: { xs: "1.5rem", md: "1.75rem" }, lineHeight: 1.15, mb: 1.5, letterSpacing: "-0.02em" }}
+                    >
+                      {item.title}
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.9375rem", lineHeight: 1.55, color: inkSoft, maxWidth: 320 }}>
+                      {item.desc}
+                    </Typography>
+                  </Box>
+                </motion.div>
+              ))}
+            </Box>
+          </motion.div>
         </Container>
       </Box>
 
-      {/* Contact */}
-      <Box
-        id="contact"
-        sx={{
-          py: { xs: 6, md: 8 },
-          px: 2,
-          background: mode === "dark"
-            ? `
-                linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 50%, rgba(15, 23, 42, 0.98) 100%),
-                radial-gradient(ellipse 70% 50% at 50% 50%, rgba(13, 148, 136, 0.15), transparent)
-              `
-            : `
-                linear-gradient(135deg, rgba(13, 148, 136, 0.06) 0%, rgba(240, 253, 250, 0.5) 50%, rgba(255,255,255,0.95) 100%),
-                radial-gradient(ellipse 70% 50% at 50% 50%, rgba(13, 148, 136, 0.08), transparent)
-              `,
-          borderTop: mode === "dark" ? "1px solid rgba(148,163,184,0.1)" : "1px solid rgba(148,163,184,0.15)",
-        }}
-      >
-        <Container maxWidth="md">
-          <Stack spacing={3} alignItems="center" textAlign="center" mb={4}>
-            <Chip
-              icon={<PhoneIcon sx={{ fontSize: 18, color: "primary.main" }} />}
-              label="Get in touch"
-              sx={{
-                bgcolor: "rgba(13, 148, 136, 0.12)",
-                color: "text.primary",
-                fontWeight: 600,
-                border: "1px solid rgba(13, 148, 136, 0.3)",
-                "& .MuiChip-icon": { ml: 0.5 },
-              }}
-            />
-            <Typography variant="h4" fontWeight={700} sx={{ color: "text.primary" }}>
-              Contact us
-            </Typography>
-            <Typography variant="body1" maxWidth="600px" sx={{ color: mode === "dark" ? "#e2e8f0" : "text.secondary" }}>
-              SmartLoc helps businesses find the correct location in Nuwara Eliya according to their business type. We use foot traffic, competition, and market data to recommend the best spot for your café, hotel, restaurant, retail, or other business. Need help? Use the chatbot or contact our team.
-            </Typography>
+      {/* ------------------------------ CONTACT ------------------------------ */}
+      <Box id="contact" sx={{ py: { xs: 10, md: 16 }, px: 2, color: ink }}>
+        <Container maxWidth="lg">
+          <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 4, md: 10 }} sx={{ mb: { xs: 6, md: 10 } }}>
+            <motion.div initial="hidden" whileInView="show" viewport={{ once: true, margin: "-15%" }} variants={reveal}>
+              <Typography variant="overline" sx={{ letterSpacing: "0.3em", fontSize: 11, color: inkSoft, fontWeight: 500 }}>
+                02 — In touch
+              </Typography>
+            </motion.div>
+            <motion.div initial="hidden" whileInView="show" viewport={{ once: true, margin: "-15%" }} variants={reveal} custom={1} style={{ flex: 1 }}>
+              <Typography
+                className="font-display"
+                sx={{ fontSize: { xs: "2rem", md: "3rem" }, lineHeight: 1.05, fontWeight: 400, letterSpacing: "-0.025em", maxWidth: 720 }}
+              >
+                Talk to a human,{" "}
+                <Box component="em" sx={{ fontStyle: "italic", color: inkSoft }}>
+                  not a form.
+                </Box>
+              </Typography>
+              <Typography sx={{ mt: 3, fontSize: "1rem", lineHeight: 1.55, color: inkSoft, maxWidth: 560 }}>
+                Booking a call, emailing the team, or scheduling a working session — we read everything
+                and reply the same day.
+              </Typography>
+            </motion.div>
           </Stack>
-          <Grid container spacing={3} justifyContent="center">
-            <Grid item xs={12} sm={6} md={4}>
-              <Paper
-                elevation={0}
-                component="a"
-                href={GOOGLE_CALENDAR_MEETING_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{
-                  p: 3,
-                  borderRadius: 3,
-                  height: "100%",
-                  border: mode === "dark" ? "2px solid rgba(13, 148, 136, 0.3)" : "2px solid rgba(13, 148, 136, 0.25)",
-                  bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.7)" : "rgba(255,255,255,0.9)",
-                  textDecoration: "none",
-                  color: "inherit",
-                  display: "block",
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    borderColor: "primary.main",
-                    bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.9)" : "rgba(13, 148, 136, 0.06)",
-                    boxShadow: mode === "dark" ? "0 8px 24px rgba(13, 148, 136, 0.3)" : "0 8px 24px rgba(13, 148, 136, 0.15)",
+
+          <motion.div initial="hidden" whileInView="show" viewport={{ once: true, margin: "-10%" }} variants={staggerParent}>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" },
+                borderTop: `1px solid ${hair}`,
+              }}
+            >
+              {[
+                {
+                  icon: <EventIcon sx={{ fontSize: 18 }} />,
+                  label: "Book a meeting",
+                  value: "Google Calendar",
+                  href: GOOGLE_CALENDAR_MEETING_URL,
+                  external: true,
+                },
+                {
+                  icon: <PhoneIcon sx={{ fontSize: 18 }} />,
+                  label: "Call agent",
+                  value: contactPhone,
+                  sub: "Mon–Sat, 9am – 6pm",
+                  href: getPhoneLink(contactPhone),
+                },
+                {
+                  icon: <EmailIcon sx={{ fontSize: 18 }} />,
+                  label: "Email",
+                  value: CONTACT_EMAIL,
+                  sub: isAuthenticated ? "Opens in Gmail" : "Register to send",
+                  onClick: () => {
+                    if (isAuthenticated) window.open(getEmailLink(CONTACT_EMAIL, true), "_blank");
+                    else navigate("/register");
                   },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2,
-                    bgcolor: "primary.main",
-                    color: "white",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mb: 2,
-                  }}
-                >
-                  <EventIcon sx={{ fontSize: 26 }} />
-                </Box>
-                <Typography variant="subtitle1" fontWeight={700} color="primary.main">
-                  Schedule a meeting
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 0.5, color: mode === "dark" ? "#cbd5e1" : "text.secondary" }}>
-                  Open Google Calendar to book a consultation with our team.
-                </Typography>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <Paper
-                elevation={0}
-                component="a"
-                href={getPhoneLink(contactPhone)}
-                sx={{
-                  p: 3,
-                  borderRadius: 3,
-                  height: "100%",
-                  border: mode === "dark" ? "2px solid rgba(13, 148, 136, 0.3)" : "2px solid rgba(13, 148, 136, 0.25)",
-                  bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.7)" : "rgba(255,255,255,0.9)",
-                  textDecoration: "none",
-                  color: "inherit",
-                  display: "block",
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    borderColor: "primary.main",
-                    bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.9)" : "rgba(13, 148, 136, 0.06)",
-                    boxShadow: mode === "dark" ? "0 8px 24px rgba(13, 148, 136, 0.3)" : "0 8px 24px rgba(13, 148, 136, 0.15)",
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2,
-                    bgcolor: "primary.main",
-                    color: "white",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mb: 2,
-                  }}
-                >
-                  <PhoneIcon sx={{ fontSize: 26 }} />
-                </Box>
-                <Typography variant="subtitle1" fontWeight={700} color="primary.main">
-                  Call agent
-                </Typography>
-                <Typography variant="h6" fontWeight={600} sx={{ mt: 0.5 }}>
-                  {contactPhone}
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 0.5, color: mode === "dark" ? "#cbd5e1" : "text.secondary" }}>
-                  Mon–Sat, 9am–6pm
-                </Typography>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <Paper
-                elevation={0}
-                component="div"
-                onClick={() => {
-                  if (isAuthenticated) {
-                    // Open Gmail compose in new tab for registered users
-                    window.open(getEmailLink(CONTACT_EMAIL, true), "_blank");
-                  } else {
-                    // Redirect to register page if not registered
-                    navigate("/register");
-                  }
-                }}
-                sx={{
-                  p: 3,
-                  borderRadius: 3,
-                  height: "100%",
-                  border: mode === "dark" ? "2px solid rgba(13, 148, 136, 0.3)" : "2px solid rgba(13, 148, 136, 0.25)",
-                  bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.7)" : "rgba(255,255,255,0.9)",
-                  cursor: "pointer",
-                  color: "inherit",
-                  display: "block",
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    borderColor: "primary.main",
-                    bgcolor: mode === "dark" ? "rgba(30, 41, 59, 0.9)" : "rgba(13, 148, 136, 0.06)",
-                    boxShadow: mode === "dark" ? "0 8px 24px rgba(13, 148, 136, 0.3)" : "0 8px 24px rgba(13, 148, 136, 0.15)",
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2,
-                    bgcolor: "primary.main",
-                    color: "white",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mb: 2,
-                  }}
-                >
-                  <EmailIcon sx={{ fontSize: 26 }} />
-                </Box>
-                <Typography variant="subtitle1" fontWeight={700} color="primary.main">
-                  Email us
-                </Typography>
-                <Typography variant="h6" fontWeight={600} sx={{ mt: 0.5, wordBreak: "break-all" }}>
-                  {CONTACT_EMAIL}
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 0.5, color: mode === "dark" ? "#cbd5e1" : "text.secondary" }}>
-                  {isAuthenticated 
-                    ? "Click to open Gmail" 
-                    : "Register to open Gmail"}
-                </Typography>
-                {!isAuthenticated && (
-                  <Typography variant="caption" sx={{ mt: 0.5, display: "block", color: mode === "dark" ? "#fbbf24" : "warning.main", fontWeight: 600 }}>
-                    Please register first
-                  </Typography>
-                )}
-              </Paper>
-            </Grid>
-          </Grid>
+                },
+              ].map((c, i) => (
+                <motion.div key={c.label} variants={staggerChild}>
+                  <Box
+                    component={c.href ? "a" : "div"}
+                    href={c.href}
+                    target={c.external ? "_blank" : undefined}
+                    rel={c.external ? "noopener noreferrer" : undefined}
+                    onClick={c.onClick}
+                    sx={{
+                      display: "block",
+                      textDecoration: "none",
+                      color: "inherit",
+                      cursor: "pointer",
+                      p: { xs: 3, md: 4 },
+                      borderBottom: `1px solid ${hair}`,
+                      borderRight: { md: i < 2 ? `1px solid ${hair}` : "none" },
+                      transition: "background-color 0.4s ease",
+                      "&:hover": {
+                        bgcolor: isDark ? "rgba(245,243,238,0.04)" : "rgba(10,10,10,0.03)",
+                        "& .arrow": { transform: "translate(4px, -4px)" },
+                      },
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 6 }}>
+                      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ color: inkSoft }}>
+                        {c.icon}
+                        <Typography sx={{ fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", fontWeight: 500 }}>
+                          {c.label}
+                        </Typography>
+                      </Stack>
+                      <ArrowOutwardIcon
+                        className="arrow"
+                        sx={{ fontSize: 18, color: inkSoft, transition: "transform 0.3s ease" }}
+                      />
+                    </Stack>
+                    <Typography
+                      className="font-display"
+                      sx={{ fontSize: { xs: "1.5rem", md: "1.75rem" }, lineHeight: 1.2, letterSpacing: "-0.02em", wordBreak: "break-word" }}
+                    >
+                      {c.value}
+                    </Typography>
+                    {c.sub && (
+                      <Typography sx={{ mt: 1.5, fontSize: "0.875rem", color: inkSoft }}>{c.sub}</Typography>
+                    )}
+                  </Box>
+                </motion.div>
+              ))}
+            </Box>
+          </motion.div>
         </Container>
       </Box>
 
-      {/* Footer */}
+      {/* ------------------------------ FOOTER ------------------------------ */}
       <Box
         component="footer"
         sx={{
-          py: 4,
+          bgcolor: isDark ? "#050807" : "#0a0a0a",
+          color: "rgba(245,243,238,0.72)",
+          pt: { xs: 8, md: 12 },
+          pb: 4,
           px: 2,
-          mt: 2,
-          bgcolor: mode === "dark" ? "#0f172a" : "#1e293b",
-          color: mode === "dark" ? "#cbd5e1" : "#94a3b8",
-          borderTop: mode === "dark" ? "1px solid rgba(148, 163, 184, 0.12)" : "none",
-          background: mode === "dark" 
-            ? "linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(10, 14, 26, 0.95) 100%)"
-            : undefined,
         }}
       >
         <Container maxWidth="lg">
-          <Grid container spacing={4}>
-            <Grid item xs={12} sm={6} md={3}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 6, md: 4 }} sx={{ mb: { xs: 6, md: 10 } }}>
+            <Box sx={{ flex: 1.4 }}>
               <Typography
-                variant="h6"
-                fontWeight={700}
-                sx={{ color: mode === "dark" ? "#f1f5f9" : "#fff", mb: 1 }}
+                className="font-display"
+                sx={{ fontSize: { xs: "2rem", md: "2.75rem" }, color: "#f5f3ee", lineHeight: 1.05, letterSpacing: "-0.025em", fontWeight: 400, maxWidth: 520 }}
               >
-                SmartLoc
+                SmartLoc — location intelligence for the hill country.
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: mode === "dark" ? "#cbd5e1" : "inherit" }}>
-                Find the right business location in Nuwara Eliya according to your business type.
-              </Typography>
-              {/* Social Media Links */}
-              <Stack direction="row" spacing={1.5}>
-                <IconButton
-                  component="a"
-                  href={socialMedia.instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  sx={{
-                    color: mode === "dark" ? "#cbd5e1" : "#94a3b8",
-                    "&:hover": { color: "#E4405F", bgcolor: "rgba(228, 64, 95, 0.1)" },
-                  }}
-                  size="small"
-                >
-                  <InstagramIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                  component="a"
-                  href={socialMedia.twitter}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  sx={{
-                    color: mode === "dark" ? "#cbd5e1" : "#94a3b8",
-                    "&:hover": { color: "#1DA1F2", bgcolor: "rgba(29, 161, 242, 0.1)" },
-                  }}
-                  size="small"
-                >
-                  <TwitterIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                  component="a"
-                  href={socialMedia.facebook}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  sx={{
-                    color: mode === "dark" ? "#cbd5e1" : "#94a3b8",
-                    "&:hover": { color: "#1877F2", bgcolor: "rgba(24, 119, 242, 0.1)" },
-                  }}
-                  size="small"
-                >
-                  <FacebookIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                  component="a"
-                  href={getWhatsAppLink(socialMedia.whatsapp)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  sx={{
-                    color: mode === "dark" ? "#cbd5e1" : "#94a3b8",
-                    "&:hover": { color: "#25D366", bgcolor: "rgba(37, 211, 102, 0.1)" },
-                  }}
-                  size="small"
-                >
-                  <WhatsAppIcon fontSize="small" />
-                </IconButton>
+              <Stack direction="row" spacing={0.5} sx={{ mt: 4 }}>
+                {[
+                  { icon: <InstagramIcon fontSize="small" />, href: socialMedia.instagram },
+                  { icon: <TwitterIcon fontSize="small" />, href: socialMedia.twitter },
+                  { icon: <FacebookIcon fontSize="small" />, href: socialMedia.facebook },
+                  { icon: <WhatsAppIcon fontSize="small" />, href: getWhatsAppLink(socialMedia.whatsapp) },
+                ].map((s, i) => (
+                  <IconButton
+                    key={i}
+                    component="a"
+                    href={s.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{
+                      color: "rgba(245,243,238,0.6)",
+                      "&:hover": { color: "#f5f3ee", bgcolor: "rgba(245,243,238,0.06)" },
+                    }}
+                    size="small"
+                  >
+                    {s.icon}
+                  </IconButton>
+                ))}
               </Stack>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: mode === "dark" ? "#e2e8f0" : "#e2e8f0", mb: 1 }}>
-                Product
-              </Typography>
-              <Stack spacing={0.5}>
-                <Button
-                  size="small"
-                  sx={{ color: mode === "dark" ? "#cbd5e1" : "#94a3b8", justifyContent: "flex-start" }}
-                  onClick={() => navigate("/dashboard")}
-                >
-                  Dashboard
-                </Button>
-                <Button
-                  size="small"
-                  sx={{ color: mode === "dark" ? "#cbd5e1" : "#94a3b8", justifyContent: "flex-start" }}
-                  onClick={() => navigate("/recommendations")}
-                >
-                  Recommendations
-                </Button>
-                <Button
-                  size="small"
-                  sx={{ color: mode === "dark" ? "#cbd5e1" : "#94a3b8", justifyContent: "flex-start" }}
-                  onClick={() => navigate("/profile")}
-                >
-                  Profile
-                </Button>
-              </Stack>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: mode === "dark" ? "#e2e8f0" : "#e2e8f0", mb: 1 }}>
-                Resources
-              </Typography>
-              <Stack spacing={0.5}>
-                <Button size="small" href="#contact" component="a" sx={{ color: mode === "dark" ? "#cbd5e1" : "#94a3b8", justifyContent: "flex-start", textTransform: "none" }}>
-                  Contact (call / email)
-                </Button>
-                <Typography variant="body2" sx={{ color: mode === "dark" ? "#cbd5e1" : "inherit" }}>Nuwara Eliya area guide</Typography>
-                <Typography variant="body2" sx={{ color: mode === "dark" ? "#cbd5e1" : "inherit" }}>Pricing & plans</Typography>
-                <Typography variant="body2" sx={{ color: mode === "dark" ? "#cbd5e1" : "inherit" }}>Support</Typography>
-              </Stack>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: mode === "dark" ? "#e2e8f0" : "#e2e8f0", mb: 1 }}>
-                Legal
-              </Typography>
-              <Typography variant="body2" sx={{ color: mode === "dark" ? "#cbd5e1" : "inherit" }}>Privacy policy</Typography>
-              <Typography variant="body2" sx={{ color: mode === "dark" ? "#cbd5e1" : "inherit" }}>Terms of use</Typography>
-            </Grid>
-          </Grid>
-          <Box
-            sx={{
-              mt: 4,
-              pt: 3,
-              borderTop: "1px solid rgba(148,163,184,0.2)",
-              textAlign: "center"
-            }}
+            </Box>
+
+            <Box sx={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
+              {[
+                {
+                  h: "Product",
+                  items: [
+                    { label: "Dashboard", onClick: () => navigate("/dashboard") },
+                    { label: "Recommendations", onClick: () => navigate("/recommendations") },
+                    { label: "Profile", onClick: () => navigate("/profile") },
+                  ],
+                },
+                {
+                  h: "Resources",
+                  items: [
+                    { label: "Contact", onClick: () => (window.location.hash = "#contact") },
+                    { label: "Area guide" },
+                    { label: "Support" },
+                  ],
+                },
+                {
+                  h: "Legal",
+                  items: [{ label: "Privacy" }, { label: "Terms" }],
+                },
+              ].map((col) => (
+                <Box key={col.h}>
+                  <Typography sx={{ fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", color: "rgba(245,243,238,0.55)", mb: 2, fontWeight: 500 }}>
+                    {col.h}
+                  </Typography>
+                  <Stack spacing={1.25}>
+                    {col.items.map((it) => (
+                      <Typography
+                        key={it.label}
+                        onClick={it.onClick}
+                        sx={{
+                          fontSize: "0.9375rem",
+                          color: "rgba(245,243,238,0.75)",
+                          cursor: it.onClick ? "pointer" : "default",
+                          "&:hover": { color: it.onClick ? "#f5f3ee" : undefined },
+                        }}
+                      >
+                        {it.label}
+                      </Typography>
+                    ))}
+                  </Stack>
+                </Box>
+              ))}
+            </Box>
+          </Stack>
+
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", sm: "center" }}
+            sx={{ pt: 4, borderTop: "1px solid rgba(245,243,238,0.1)" }}
           >
-            <Typography variant="caption">
+            <Typography sx={{ fontSize: "0.8125rem", color: "rgba(245,243,238,0.5)" }}>
               © {new Date().getFullYear()} SmartLoc. All rights reserved.
             </Typography>
-          </Box>
+            <Typography sx={{ fontSize: "0.8125rem", color: "rgba(245,243,238,0.5)" }}>
+              Built in Nuwara Eliya.
+            </Typography>
+          </Stack>
         </Container>
       </Box>
     </Box>

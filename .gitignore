@@ -1,0 +1,43 @@
+# Node / Vite
+node_modules/
+dist/
+.vite/
+
+# Editor / tool folders
+.cursor/
+.vscode/
+.claude/worktrees/
+.claude/settings.local.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Frontend env
+.env
+.env.local
+
+# Laravel backend
+backend/vendor/
+backend/storage/*.key
+backend/storage/app/public/
+backend/storage/framework/cache/data/
+backend/storage/framework/sessions/
+backend/storage/framework/testing/
+backend/storage/framework/views/
+backend/storage/logs/*.log
+backend/bootstrap/cache/*.php
+!backend/bootstrap/cache/.gitkeep
+backend/.env
+backend/.env.backup
+backend/.phpunit.result.cache
+
+# Python ML service
+backend/ml/.venv/
+backend/ml/__pycache__/
+backend/ml/*.pyc
+
+# Misc local files
+TEST_SIMPLE.html
+*.log
