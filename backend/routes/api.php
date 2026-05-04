@@ -20,6 +20,7 @@ Route::post('/register', [AuthController::class, 'register']);
 
 // Protected user routes
 Route::middleware(['auth:sanctum'])->post('/change-password', [AuthController::class, 'changePassword']);
+Route::middleware(['auth:sanctum'])->put('/profile', [AuthController::class, 'updateProfile']);
 
 // When user inputs Location Finder data, save to MySQL so admin sees it automatically
 Route::middleware(['auth:sanctum'])->post('/submissions', [SubmissionController::class, 'store']);
@@ -27,7 +28,7 @@ Route::middleware(['auth:sanctum'])->post('/submissions', [SubmissionController:
 // Public social media links
 Route::get('/social-media', [SocialMediaController::class, 'getSocialMedia']);
 
-// Public read of Nuwara Eliya neighbourhood data — FastAPI's ML service
+// Public read of Nuwara Eliya neighbourhood data - FastAPI's ML service
 // fetches from this endpoint. Public so the ML service doesn't need a token.
 Route::get('/areas', [AreaController::class, 'index']);
 
@@ -66,10 +67,10 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     // Analytics
     Route::get('/analytics', [AdminController::class, 'getAnalytics']);
 
-    // User inputs (Location Finder submissions) – auto-shown when user submits
+    // User inputs (Location Finder submissions) - auto-shown when user submits
     Route::get('/submissions', [AdminController::class, 'getSubmissions']);
 
-    // Areas (Nuwara Eliya neighbourhoods) — admin can edit area data that
+    // Areas (Nuwara Eliya neighbourhoods) - admin can edit area data that
     // FastAPI uses for the per-area XGBoost feature substitution.
     Route::get('/areas', [AdminController::class, 'getAreas']);
     Route::post('/areas', [AdminController::class, 'createArea']);

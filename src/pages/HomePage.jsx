@@ -139,7 +139,7 @@ export default function HomePage() {
                   variant="overline"
                   sx={{ letterSpacing: "0.28em", fontSize: 11, color: "rgba(245,243,238,0.85)", fontWeight: 500 }}
                 >
-                  SmartLoc · Nuwara Eliya
+                  SmartLoc , Nuwara Eliya
                 </Typography>
               </Stack>
             </motion.div>
@@ -185,7 +185,7 @@ export default function HomePage() {
               >
                 A location intelligence platform built for Nuwara Eliya. We look at how many
                 walk-in customers each area gets, how many similar businesses are nearby, and
-                what the market pays — so cafés, hotels, retail and wellness operators choose
+                what the market pays - so cafes, hotels, retail and wellness operators choose
                 with conviction.
               </Typography>
             </motion.div>
@@ -258,7 +258,7 @@ export default function HomePage() {
           <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 4, md: 10 }} sx={{ mb: { xs: 6, md: 10 } }}>
             <motion.div initial="hidden" whileInView="show" viewport={{ once: true, margin: "-15%" }} variants={reveal} custom={0}>
               <Typography variant="overline" sx={{ letterSpacing: "0.3em", fontSize: 11, color: inkSoft, fontWeight: 500 }}>
-                01 — Capabilities
+                01 - Capabilities
               </Typography>
             </motion.div>
             <motion.div
@@ -305,7 +305,7 @@ export default function HomePage() {
                 {
                   n: "A",
                   title: "Business analysis",
-                  desc: "AI reports on walk-in customers, local demographics and spending patterns — cut through the anecdote.",
+                  desc: "AI reports on walk-in customers, local demographics and spending patterns - cut through the anecdote.",
                 },
                 {
                   n: "B",
@@ -357,7 +357,7 @@ export default function HomePage() {
           <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 4, md: 10 }} sx={{ mb: { xs: 6, md: 10 } }}>
             <motion.div initial="hidden" whileInView="show" viewport={{ once: true, margin: "-15%" }} variants={reveal}>
               <Typography variant="overline" sx={{ letterSpacing: "0.3em", fontSize: 11, color: inkSoft, fontWeight: 500 }}>
-                02 — In touch
+                02 - In touch
               </Typography>
             </motion.div>
             <motion.div initial="hidden" whileInView="show" viewport={{ once: true, margin: "-15%" }} variants={reveal} custom={1} style={{ flex: 1 }}>
@@ -371,7 +371,7 @@ export default function HomePage() {
                 </Box>
               </Typography>
               <Typography sx={{ mt: 3, fontSize: "1rem", lineHeight: 1.55, color: inkSoft, maxWidth: 560 }}>
-                Booking a call, emailing the team, or scheduling a working session — we read everything
+                Booking a call, emailing the team, or scheduling a working session - we read everything
                 and reply the same day.
               </Typography>
             </motion.div>
@@ -397,7 +397,7 @@ export default function HomePage() {
                   icon: <PhoneIcon sx={{ fontSize: 18 }} />,
                   label: "Call agent",
                   value: contactPhone,
-                  sub: "Mon–Sat, 9am – 6pm",
+                  sub: "Mon-Sat, 9am - 6pm",
                   href: getPhoneLink(contactPhone),
                 },
                 {
@@ -480,7 +480,7 @@ export default function HomePage() {
                 className="font-display"
                 sx={{ fontSize: { xs: "2rem", md: "2.75rem" }, color: "#f5f3ee", lineHeight: 1.05, letterSpacing: "-0.025em", fontWeight: 400, maxWidth: 520 }}
               >
-                SmartLoc — location intelligence for the hill country.
+                SmartLoc - location intelligence for the hill country.
               </Typography>
               <Stack direction="row" spacing={0.5} sx={{ mt: 4 }}>
                 {[

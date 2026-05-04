@@ -8,7 +8,7 @@ return new class extends Migration
 {
     /**
      * Simplified submissions schema matching the current Dashboard form:
-     *   Business Type (required) · Land (rent/purchase) · Budget (LKR) · Preferred Area (optional)
+     *   Business Type (required) , Land (rent/purchase) , Budget (LKR) , Preferred Area (optional)
      */
     public function up(): void
     {

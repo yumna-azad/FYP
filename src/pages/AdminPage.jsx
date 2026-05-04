@@ -93,14 +93,6 @@ function saveData(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
-// Mock transaction history for admin management
-const defaultTransactions = [
-  { id: "t1", date: "2024-01-15", user: "John Smith", type: "Subscription Pro", amount: "LKR 9,990", status: "Completed" },
-  { id: "t2", date: "2024-01-14", user: "Sarah Johnson", type: "Free tier", amount: ".", status: "Active" },
-  { id: "t3", date: "2024-01-12", user: "Admin", type: "Location export", amount: ".", status: "Completed" },
-  { id: "t4", date: "2024-01-10", user: "System", type: "Plan renewal", amount: "LKR 9,990", status: "Completed" },
-];
-
 const OVERVIEW_CHART_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const overviewVisits = [12, 19, 15, 22, 18, 24, 20];
 const overviewActivity = [8, 14, 18, 16, 22, 19, 25];
@@ -123,12 +115,6 @@ export default function AdminPage() {
   const setTab = (value) => {
     setSearchParams({ tab: value }, { replace: true });
   };
-  const [transactions] = useState(() => {
-    try {
-      const s = localStorage.getItem("smartloc_admin_transactions");
-      return s ? JSON.parse(s) : defaultTransactions;
-    } catch { return defaultTransactions; }
-  });
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -420,7 +406,7 @@ export default function AdminPage() {
               Admin Dashboard
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Admin management: users, business types, locations, transactions
+              Admin management: users, business types, locations, and Nuwara Eliya area data
             </Typography>
           </Box>
           {(tab === "users" || tab === "business" || tab === "locations" || tab === "areas") && (
@@ -489,13 +475,11 @@ export default function AdminPage() {
               <Grid container spacing={2} sx={{ mb: 3 }}>
                 {[
                   { label: "Total Users", value: stats?.totalUsers ?? users.length, change: "+25%", icon: PeopleIcon, color: SPARKLINE_COLORS[0], spark: [2, 4, 5, 6, 8, 7, 9] },
-                  { label: "Total Revenue", value: "LKR 19.9K", change: "+18%", icon: AttachMoneyIcon, color: SPARKLINE_COLORS[1], spark: [4, 5, 6, 7, 8, 9, 10] },
                   { label: "Locations", value: stats?.locations ?? locations.length, change: "+0%", icon: PlaceIcon, color: SPARKLINE_COLORS[2], spark: [1, 2, 2, 3, 3, 3, 4] },
                   { label: "Business Types", value: stats?.businessTypes ?? businessTypes.length, change: "+0%", icon: StoreIcon, color: SPARKLINE_COLORS[3], spark: [3, 4, 5, 5, 5, 5, 5] },
-                  { label: "User Inputs", value: submissions.length, change: useMock ? "." : ".", icon: TimelineIcon, color: SPARKLINE_COLORS[0], spark: [0, 1, 2, 2, 3, 3, 4] },
-                  { label: "Transactions", value: transactions.length, change: ".", icon: ReceiptLongIcon, color: SPARKLINE_COLORS[4], spark: [2, 3, 3, 4, 4, 4, 4] },
+                  { label: "User Inputs", value: submissions.length, change: "", icon: TimelineIcon, color: SPARKLINE_COLORS[0], spark: [0, 1, 2, 2, 3, 3, 4] },
                 ].map((k, idx) => (
-                  <Grid item xs={6} md={4} lg={2} key={k.label}>
+                  <Grid item xs={6} md={4} lg={3} key={k.label}>
                     <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, height: "100%" }}>
                       <CardContent sx={{ p: 2 }}>
                         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -621,13 +605,12 @@ export default function AdminPage() {
                   <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
                     <CardContent sx={{ p: 2.5 }}>
                       <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>Quick admin actions</Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Manage users, business types, locations, and view transactions from the sidebar.</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Manage users, business types, locations, and Nuwara Eliya area data from the sidebar.</Typography>
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
                         <Button size="small" variant="outlined" startIcon={<PeopleIcon />} onClick={() => setTab("users")}>Add User</Button>
                         <Button size="small" variant="outlined" startIcon={<StoreIcon />} onClick={() => setTab("business")}>Add Business Type</Button>
                         <Button size="small" variant="outlined" startIcon={<PlaceIcon />} onClick={() => setTab("locations")}>Add Location</Button>
                         <Button size="small" variant="outlined" startIcon={<TimelineIcon />} onClick={() => setTab("inputs")}>User Inputs</Button>
-                        <Button size="small" variant="outlined" startIcon={<ReceiptLongIcon />} onClick={() => setTab("transactions")}>Transaction History</Button>
                       </Box>
                     </CardContent>
                   </Card>
@@ -973,52 +956,6 @@ export default function AdminPage() {
             </Box>
           )}
 
-          {/* Transaction History Tab - Admin management */}
-          {tab === "transactions" && (
-            <Box sx={{ p: 3 }}>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="h6" fontWeight={600}>
-                  Transaction History
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  View and manage all transactions (subscriptions, renewals, exports)
-                </Typography>
-              </Box>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "action.hover" }}>
-                    <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>User</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {transactions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                        No transactions yet.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    transactions.map((tx) => (
-                      <TableRow key={tx.id} hover>
-                        <TableCell>{tx.date}</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>{tx.user}</TableCell>
-                        <TableCell>{tx.type}</TableCell>
-                        <TableCell>{tx.amount}</TableCell>
-                        <TableCell>
-                          <Chip label={tx.status} size="small" color={tx.status === "Completed" ? "success" : "default"} variant="outlined" />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </Box>
-          )}
-
           {/* Analytics Tab */}
           {tab === "analytics" && (
             <Box sx={{ p: 3 }}>
@@ -1124,7 +1061,7 @@ export default function AdminPage() {
                           Business Types Distribution
                         </Typography>
                       </Box>
-                      <Box sx={{ height: 250, display: "flex", flexDirection: "column", justifyContent: "center", gap: 2 }}>
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                         {businessTypes.length > 0 ? (
                           businessTypes.map((bt, i) => {
                             const maxCount = Math.max(...businessTypes.map(b => parseInt(b.count || 0)), 1);
@@ -1193,7 +1130,7 @@ export default function AdminPage() {
                           Location Scores Distribution
                         </Typography>
                       </Box>
-                      <Box sx={{ height: 250, display: "flex", flexDirection: "column", justifyContent: "center", gap: 2 }}>
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 2, minHeight: 250 }}>
                         {locations.length > 0 ? (
                           locations.slice(0, 5).map((loc, i) => {
                             const score = parseInt(loc.score || 0);

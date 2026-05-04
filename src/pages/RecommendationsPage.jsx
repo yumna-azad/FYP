@@ -583,7 +583,7 @@ export default function RecommendationsPage() {
         <CircularProgress />
         <Stack alignItems="center" spacing={0.5}>
           <Typography className="font-display" sx={{ fontSize: "1.75rem", letterSpacing: "-0.02em" }}>
-            Finding the best places for you…
+            Finding the best places for you...
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Analysing 12 areas across 12 months against your inputs
@@ -875,7 +875,7 @@ export default function RecommendationsPage() {
                       {whatIfBusy && (
                         <Stack direction="row" spacing={1} alignItems="center">
                           <CircularProgress size={14} />
-                          <Typography variant="caption" color="text.secondary">Re-running prediction…</Typography>
+                          <Typography variant="caption" color="text.secondary">Re-running prediction...</Typography>
                         </Stack>
                       )}
                     </Stack>

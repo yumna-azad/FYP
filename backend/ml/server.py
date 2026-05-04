@@ -76,7 +76,7 @@ class PredictRequest(BaseModel):
     preferred_area: str | None = Field(default=None, alias="preferredArea")
     # Optional opening-month override (1..12). When provided, area ranking uses
     # that month's monthly features instead of the model's auto-detected peak
-    # month. Used by the what-if simulator's "Open in May / December / …" chips
+    # month. Used by the what-if simulator's "Open in May / December / ..." chips
     # and by future Phase 5 mode tabs.
     month: int | None = Field(default=None, ge=1, le=12)
 

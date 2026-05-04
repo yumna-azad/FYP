@@ -43,7 +43,6 @@ export default function Sidebar() {
     { label: "Locations", path: "/admin", tab: "locations", icon: <MapPin {...iconProps} /> },
     { label: "Areas (ML data)", path: "/admin", tab: "areas", icon: <MapPin {...iconProps} /> },
     { label: "User inputs", path: "/admin", tab: "inputs", icon: <LineChart {...iconProps} /> },
-    { label: "Transactions", path: "/admin", tab: "transactions", icon: <Receipt {...iconProps} /> },
     { label: "Analytics", path: "/admin", tab: "analytics", icon: <BarChart3 {...iconProps} /> },
     { label: "Meetings", path: "/admin/meetings", tab: null, icon: <CalendarDays {...iconProps} /> },
     { label: "Social", path: "/admin/social-media", tab: null, icon: <Share2 {...iconProps} /> },

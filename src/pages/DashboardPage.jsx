@@ -29,7 +29,7 @@ import { adminAPI, useMockData, submitLocationFinder } from "../lib/api.js";
 
 // Fallback when no API or API returns empty (admin "Add Business Type" feeds the list when API is connected)
 const defaultBusinessTypeOptions = [
-  { value: "cafe", label: "Café" },
+  { value: "cafe", label: "Cafe" },
   { value: "retail_shop", label: "Retail Shop" },
   { value: "wellness_center", label: "Wellness Center" },
   { value: "restaurant", label: "Restaurant" },
@@ -63,7 +63,7 @@ const BUDGET_RANGES_BY_TYPE = {
   hotel:            { rent: { min: 280_000, max: 500_000 },   buy: { min: 38_000_000,  max: 265_000_000 } },
 };
 
-// Fallback when no business type selected — spans the entire commercial data range
+// Fallback when no business type selected - spans the entire commercial data range
 const DEFAULT_BUDGET_RANGE = {
   rent: { min: 10_000,    max: 500_000 },
   buy:  { min: 2_000_000, max: 300_000_000 },
@@ -87,28 +87,28 @@ const defaultLocationsForMap = [
     name: "City Center",
     lat: 6.9497,
     lng: 80.7891,
-    description: "Commercial District · Score 92"
+    description: "Commercial District , Score 92"
   },
   {
     id: "2",
     name: "Gregory Lake Front",
     lat: 6.9571,
     lng: 80.7827,
-    description: "Mixed Use · Score 87"
+    description: "Mixed Use , Score 87"
   },
   {
     id: "3",
     name: "Hakgala Road",
     lat: 6.9405,
     lng: 80.808,
-    description: "Tourist Zone · Score 85"
+    description: "Tourist Zone , Score 85"
   },
   {
     id: "4",
     name: "Pedro Tea Estate Area",
     lat: 6.935,
     lng: 80.82,
-    description: "Shopping / Tourist · Score 78"
+    description: "Shopping / Tourist , Score 78"
   }
 ];
 
@@ -128,7 +128,7 @@ export default function DashboardPage() {
   const [locations, setLocations] = useState([]);
   const [businessTypeOptions, setBusinessTypeOptions] = useState(defaultBusinessTypeOptions);
 
-  // Load business types from API when connected – admin "Add Business Type" drives user dropdown
+  // Load business types from API when connected - admin "Add Business Type" drives user dropdown
   useEffect(() => {
     if (useMock) {
       setBusinessTypeOptions(defaultBusinessTypeOptions);
@@ -168,7 +168,7 @@ export default function DashboardPage() {
             name: loc.name,
             lat: parseFloat(loc.latitude) || 6.9497,
             lng: parseFloat(loc.longitude) || 80.7891,
-            description: `${loc.type || "Location"} · Score ${loc.score || 0}`
+            description: `${loc.type || "Location"} , Score ${loc.score || 0}`
           }));
           setLocations(mapLocations.length > 0 ? mapLocations : defaultLocationsForMap);
         } catch (err) {
@@ -210,9 +210,9 @@ export default function DashboardPage() {
     : Number.isNaN(amountNum)
       ? "Budget must be a number."
       : amountNum < budgetLimits.min
-        ? `Too low — ${budgetLimits.label} in Nuwara Eliya starts around LKR ${budgetLimits.min.toLocaleString()}.`
+        ? `Too low - ${budgetLimits.label} in Nuwara Eliya starts around LKR ${budgetLimits.min.toLocaleString()}.`
         : amountNum > budgetLimits.max
-          ? `Too high — the maximum ${budgetLimits.label} observed in Nuwara Eliya is LKR ${budgetLimits.max.toLocaleString()}.`
+          ? `Too high - the maximum ${budgetLimits.label} observed in Nuwara Eliya is LKR ${budgetLimits.max.toLocaleString()}.`
           : "";
 
   const businessTypeInvalid = showErrors && !businessType;
@@ -437,7 +437,7 @@ export default function DashboardPage() {
                     type="text"
                     name="smartloc-budget"
                     autoComplete="off"
-                    label={landIntent === "rent" ? "Budget · Rent / month *" : "Budget · Purchase *"}
+                    label={landIntent === "rent" ? "Budget , Rent / month *" : "Budget , Purchase *"}
                     placeholder={landIntent === "rent" ? "e.g. 50000" : "e.g. 5000000"}
                     value={amount}
                     onChange={(e) => {
@@ -449,7 +449,7 @@ export default function DashboardPage() {
                       amountErrorMsg ||
                       (showErrors && !amountTouched
                         ? "Please enter a budget."
-                        : `Typical ${budgetLimits.label} range in Nuwara Eliya${businessType ? " for this business" : ""}: LKR ${budgetLimits.min.toLocaleString()} – ${budgetLimits.max.toLocaleString()}`)
+                        : `Typical ${budgetLimits.label} range in Nuwara Eliya${businessType ? " for this business" : ""}: LKR ${budgetLimits.min.toLocaleString()} - ${budgetLimits.max.toLocaleString()}`)
                     }
                     InputProps={{
                       startAdornment: <InputAdornment position="start">LKR</InputAdornment>,
@@ -475,7 +475,7 @@ export default function DashboardPage() {
                       <TextField
                         {...params}
                         label="Preferred Area (optional)"
-                        placeholder="Type to search Nuwara Eliya areas…"
+                        placeholder="Type to search Nuwara Eliya areas..."
                         helperText="Leave blank to consider all areas"
                       />
                     )}

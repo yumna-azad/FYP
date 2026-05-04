@@ -116,7 +116,7 @@ export function ThemeProvider({ children }) {
                   },
                 },
               },
-              /* Number input spinner: match field background so it doesn’t turn white on hover */
+              /* Number input spinner: match field background so it doesn't turn white on hover */
               ...(mode === "dark"
                 ? {
                     "input[type=number]::-webkit-inner-spin-button": {

@@ -30,7 +30,7 @@ const SUGGESTED_PROMPTS = [
 ];
 
 function fallbackReply(userMsg) {
-  // Used only when VITE_GEMINI_API_KEY is not set — keeps the chatbot usable
+  // Used only when VITE_GEMINI_API_KEY is not set - keeps the chatbot usable
   // during dev without burning a free-tier key, and as a graceful degrade if
   // Gemini errors out.
   const greetingRe = /^(hi|hello|hey|hiya|yo|howdy|good\s*(morning|afternoon|evening)|hola|aloha|sup)\b/i;
@@ -54,7 +54,7 @@ function fallbackReply(userMsg) {
     return "Gregory Lake Front, Town Centre and Hakgala Road have the strongest tourist visibility.";
   if (userMsg.includes("month") || userMsg.includes("time") || userMsg.includes("season"))
     return "Peak months are April, August and December. Monsoon / slower months are May, June, July, October and November.";
-  return "Got it. I can help you think through area, budget, timing and risks — try one of the suggested questions, or ask in your own words.";
+  return "Got it. I can help you think through area, budget, timing and risks - try one of the suggested questions, or ask in your own words.";
 }
 
 export default function Chatbot() {
@@ -233,7 +233,7 @@ export default function Chatbot() {
                 >
                   <span /><span /><span />
                 </Box>
-                <Typography variant="caption" color="text.secondary">thinking…</Typography>
+                <Typography variant="caption" color="text.secondary">thinking...</Typography>
               </Box>
             )}
 
@@ -270,7 +270,7 @@ export default function Chatbot() {
             <TextField
               fullWidth
               size="small"
-              placeholder={busy ? "Waiting for reply…" : "Ask about areas, budget, risks, timing…"}
+              placeholder={busy ? "Waiting for reply..." : "Ask about areas, budget, risks, timing..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {

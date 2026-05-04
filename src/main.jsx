@@ -50,7 +50,7 @@ function isIgnorableError(err) {
   return IGNORABLE_ERROR_PATTERNS.some((p) => p.test(message) || p.test(stack));
 }
 
-// Global error handler for catastrophic errors — but skip the known benign ones
+// Global error handler for catastrophic errors - but skip the known benign ones
 window.addEventListener("error", (event) => {
   if (isIgnorableError(event.error)) {
     console.warn("[suppressed harmless error]:", event.error?.message);

@@ -5,7 +5,7 @@ const USER_KEY = "smartloc_user";
 const PROFILE_PIC_KEY = "smartloc_profile_pic";
 
 // Laravel API base. Set VITE_API_URL in .env (defaults to http://localhost:8000).
-// Always required: there is no mock fallback — auth must hit the real Laravel backend.
+// Always required: there is no mock fallback - auth must hit the real Laravel backend.
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 const AuthContext = createContext(null);
@@ -93,7 +93,8 @@ export function AuthProvider({ children }) {
     if (typeof sessionStorage !== "undefined") sessionStorage.removeItem("smartloc_dashboard_submitted");
   };
 
-  const updateProfile = (updates) => {
+  const updateProfile = async (updates) => {
+    // Profile picture is browser-local (image data URL stored in localStorage).
     if (updates.profilePic !== undefined) {
       if (updates.profilePic) {
         localStorage.setItem(PROFILE_PIC_KEY, updates.profilePic);
@@ -103,10 +104,34 @@ export function AuthProvider({ children }) {
         setProfilePic(null);
       }
     }
-    if (updates.name !== undefined && user) {
-      const next = { ...user, name: updates.name };
-      setUserState(next);
-      localStorage.setItem(USER_KEY, JSON.stringify(next));
+
+    // Name and contact number ARE persisted to the backend so the admin
+    // user list reflects the change. Update local state on success.
+    const backendKeys = ['name', 'contact_number', 'contactNumber'];
+    const hasBackendUpdate = backendKeys.some(k => updates[k] !== undefined);
+    if (hasBackendUpdate && user && token) {
+      const body = {};
+      if (updates.name !== undefined) body.name = updates.name;
+      if (updates.contact_number !== undefined) body.contact_number = updates.contact_number;
+      if (updates.contactNumber !== undefined) body.contact_number = updates.contactNumber;
+
+      const res = await safeFetch(`${API_BASE}/api/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to update profile.');
+      }
+      const data = await res.json();
+      const updatedUser = { ...user, ...(data.user || {}) };
+      setUserState(updatedUser);
+      localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
     }
   };
 

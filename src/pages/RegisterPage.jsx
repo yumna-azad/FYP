@@ -97,7 +97,7 @@ export default function RegisterPage() {
         zIndex: 1200,
       }}
     >
-      {/* LEFT — imagery */}
+      {/* LEFT - imagery */}
       <Box sx={{ position: "relative", display: { xs: "none", md: "block" }, overflow: "hidden" }}>
         <Box
           sx={{
@@ -126,7 +126,7 @@ export default function RegisterPage() {
           <Stack spacing={3} sx={{ maxWidth: 520 }}>
             <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease, delay: 0.15 }}>
               <Typography variant="overline" sx={{ letterSpacing: "0.3em", fontSize: 10, opacity: 0.85 }}>
-                Nuwara Eliya — Hill Country
+                Nuwara Eliya - Hill Country
               </Typography>
             </motion.div>
             <motion.div initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, ease, delay: 0.25 }}>
@@ -145,13 +145,13 @@ export default function RegisterPage() {
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.7 }} transition={{ duration: 1, delay: 0.6 }}>
             <Typography sx={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", opacity: 0.75 }}>
-              Photograph · misty morning, Nuwara Eliya
+              Photograph , misty morning, Nuwara Eliya
             </Typography>
           </motion.div>
         </Stack>
       </Box>
 
-      {/* RIGHT — form */}
+      {/* RIGHT - form */}
       <Box
         sx={{
           display: "flex",

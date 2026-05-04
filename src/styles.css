@@ -135,7 +135,7 @@ body {
   letter-spacing: -0.028em;
 }
 
-/* Leaflet hard cap — prevent map from blowing out the page width */
+/* Leaflet hard cap - prevent map from blowing out the page width */
 .leaflet-container {
   max-width: 100% !important;
 }

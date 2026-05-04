@@ -56,15 +56,15 @@ function FlyToSelected({ center, zoom }) {
 /**
  * Props:
  *   locations: [{ id, name, lat, lng, description, scoreColor?, rank?, renderPopup? }]
- *   center: [lat,lng]           — optional; if provided, map flies here on change
- *   zoom: number                — default 13
- *   selectedId: string          — optional; when set, popup auto-opens on that marker
+ *   center: [lat,lng]           - optional; if provided, map flies here on change
+ *   zoom: number                - default 13
+ *   selectedId: string          - optional; when set, popup auto-opens on that marker
  */
 export default function MapView({ locations = [], center, zoom = defaultZoom, selectedId }) {
   const mapCenter = center && center[0] != null && center[1] != null ? center : defaultCenter;
   const markerRefs = useRef({});
 
-  // Stable map key — only remounts when the locations list actually changes
+  // Stable map key - only remounts when the locations list actually changes
   const locationsKey = useMemo(
     () => locations.map((l) => l.id).join("|"),
     [locations]
@@ -97,7 +97,7 @@ export default function MapView({ locations = [], center, zoom = defaultZoom, se
 
       {locations.map((loc) => {
         const selected = loc.id === selectedId;
-        // Always provide a real icon — passing `undefined` to <Marker icon> makes
+        // Always provide a real icon - passing `undefined` to <Marker icon> makes
         // Leaflet's _initIcon crash with "Cannot read properties of undefined (reading 'createIcon')".
         const icon = loc.scoreColor
           ? getCachedIcon(loc.scoreColor, String(loc.rank ?? ""), selected)

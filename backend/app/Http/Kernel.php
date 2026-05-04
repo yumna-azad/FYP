@@ -23,7 +23,7 @@ class Kernel extends HttpKernel
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
         'api' => [
-            // Token-based auth only — no CSRF/session needed
+            // Token-based auth only - no CSRF/session needed
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],

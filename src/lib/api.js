@@ -74,7 +74,7 @@ export const adminAPI = {
   updateLocation: (id, data) => apiRequest(`/api/admin/locations/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteLocation: (id) => apiRequest(`/api/admin/locations/${id}`, { method: "DELETE" }),
 
-  // Areas (Nuwara Eliya neighbourhoods) — admin can edit the data the
+  // Areas (Nuwara Eliya neighbourhoods) - admin can edit the data the
   // FastAPI ML service uses for per-area XGBoost feature substitution.
   getAreas: () => apiRequest("/api/admin/areas"),
   createArea: (data) => apiRequest("/api/admin/areas", { method: "POST", body: JSON.stringify(data) }),
@@ -90,7 +90,7 @@ export const adminAPI = {
   // Analytics
   getAnalytics: () => apiRequest("/api/admin/analytics"),
 
-  // User inputs (Location Finder submissions) – when user inputs something, admin sees it via MySQL/Laravel
+  // User inputs (Location Finder submissions) - when user inputs something, admin sees it via MySQL/Laravel
   getSubmissions: () => apiRequest("/api/admin/submissions"),
 };
 
@@ -109,7 +109,7 @@ export async function submitLocationFinder(payload) {
 
 /**
  * Always API-backed now. Kept for backward compatibility with any callers
- * that still import this — returns false because there is no mock fallback.
+ * that still import this - returns false because there is no mock fallback.
  */
 export function useMockData() {
   return false;

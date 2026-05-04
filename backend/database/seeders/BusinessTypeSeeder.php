@@ -10,7 +10,7 @@ class BusinessTypeSeeder extends Seeder
     public function run(): void
     {
         $types = [
-            ['name' => 'Café',            'count' => 164,  'growth' => '+12%'],
+            ['name' => 'Cafe',            'count' => 164,  'growth' => '+12%'],
             ['name' => 'Hotel',           'count' => 1014, 'growth' => '+8%'],
             ['name' => 'Restaurant',      'count' => 163,  'growth' => '+15%'],
             ['name' => 'Retail Shop',     'count' => 97,   'growth' => '+6%'],

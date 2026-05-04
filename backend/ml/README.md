@@ -45,11 +45,11 @@ Returns:
 1. **Model call.** For each of 12 months, the service builds a feature row by
    combining the median business features for the chosen type (from `Businesses`
    sheet) with pre-computed monthly features (from `Tourism_Monthly` +
-   `Climate` + `Events_Calendar`). XGBoost predicts a suitability score 5–95.
+   `Climate` + `Events_Calendar`). XGBoost predicts a suitability score 5-95.
 2. **Rule-based adjustment.** The 7 rules from the training notebook (zoning
    +1, property cost −3, telecom +2, demographics −1, disaster −2, municipal
    −1, parking +1 ⇒ net −3) are applied to each prediction.
 3. **Area ranking.** The model doesn't take location features, so area ranking
-   is a composite: `0.40·ML + 0.25·budget_fit + 0.20·footfall + 0.15·(1-competition)`,
+   is a composite: `0.40,ML + 0.25,budget_fit + 0.20,footfall + 0.15,(1-competition)`,
    with a +0.08 bonus if the user's preferred area matches. Price/footfall data
    comes from `Property_Listings` and `Price_Index` sheets.

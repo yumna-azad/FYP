@@ -88,7 +88,7 @@ export default function LoginPage() {
         zIndex: 1200,
       }}
     >
-      {/* LEFT — imagery */}
+      {/* LEFT - imagery */}
       <Box
         sx={{
           position: "relative",
@@ -152,7 +152,7 @@ export default function LoginPage() {
               transition={{ duration: 0.9, ease, delay: 0.15 }}
             >
               <Typography variant="overline" sx={{ letterSpacing: "0.3em", fontSize: 10, opacity: 0.85 }}>
-                Nuwara Eliya — Hill Country
+                Nuwara Eliya - Hill Country
               </Typography>
             </motion.div>
             <motion.div
@@ -184,13 +184,13 @@ export default function LoginPage() {
             transition={{ duration: 1, delay: 0.6 }}
           >
             <Typography sx={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", opacity: 0.75 }}>
-              Photograph · tea estates near Nuwara Eliya
+              Photograph , tea estates near Nuwara Eliya
             </Typography>
           </motion.div>
         </Stack>
       </Box>
 
-      {/* RIGHT — form */}
+      {/* RIGHT - form */}
       <Box
         sx={{
           display: "flex",

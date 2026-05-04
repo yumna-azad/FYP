@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Nuwara Eliya neighbourhood data — moved out of features.py constants so
+ * Nuwara Eliya neighbourhood data - moved out of features.py constants so
  * lecturers / admins can edit it through the admin panel and have FastAPI
  * pick up the changes without redeploying the ML service.
  *
