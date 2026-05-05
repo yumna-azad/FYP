@@ -914,7 +914,7 @@ export default function AdminPage() {
                   User Inputs
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Location Finder submissions from users. Connect Laravel + MySQL so these appear automatically when users submit.
+                  Every Location Finder submission a user makes on the dashboard appears here automatically.
                 </Typography>
               </Box>
               {useMock ? (
@@ -927,43 +927,53 @@ export default function AdminPage() {
                     <TableRow sx={{ bgcolor: "action.hover" }}>
                       <TableCell sx={{ fontWeight: 600 }}>User</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Business Type</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Proximity</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Traffic</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Competition</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Internet</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Land</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Land Intent</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }} align="right">Budget</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Preferred Area</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Submitted</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {submissions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                        <TableCell colSpan={6} align="center" sx={{ py: 3, color: "text.secondary" }}>
                           No user inputs yet. When users submit the Location Finder (dashboard), they will appear here.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      submissions.map((s) => (
-                        <TableRow key={s.id} hover>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight={600}>{s.user_name || s.user_email || "."}</Typography>
-                            {s.user_email && <Typography variant="caption" color="text.secondary">{s.user_email}</Typography>}
-                          </TableCell>
-                          <TableCell>{s.business_type}</TableCell>
-                          <TableCell>{s.proximity}</TableCell>
-                          <TableCell>{s.traffic}</TableCell>
-                          <TableCell>{s.competition}</TableCell>
-                          <TableCell>{s.internet_coverage}</TableCell>
-                          <TableCell>{s.land_intent}</TableCell>
-                          <TableCell>{s.amount}</TableCell>
-                          <TableCell>
-                            <Typography variant="caption" color="text.secondary">
-                              {s.created_at ? new Date(s.created_at).toLocaleString() : "."}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      submissions.map((s) => {
+                        const businessLabel = s.business_type
+                          ? s.business_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+                          : ".";
+                        const landLabel = s.land_intent
+                          ? s.land_intent.charAt(0).toUpperCase() + s.land_intent.slice(1)
+                          : ".";
+                        return (
+                          <TableRow key={s.id} hover>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={600}>{s.user_name || s.user_email || "."}</Typography>
+                              {s.user_email && <Typography variant="caption" color="text.secondary">{s.user_email}</Typography>}
+                            </TableCell>
+                            <TableCell>{businessLabel}</TableCell>
+                            <TableCell>{landLabel}</TableCell>
+                            <TableCell align="right">
+                              {s.budget ? `LKR ${Number(s.budget).toLocaleString()}` : "."}
+                            </TableCell>
+                            <TableCell>
+                              {s.preferred_area || (
+                                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                                  any area
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="caption" color="text.secondary">
+                                {s.created_at ? new Date(s.created_at).toLocaleString() : "."}
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
