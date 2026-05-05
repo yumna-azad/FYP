@@ -93,19 +93,45 @@ function saveData(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
-const OVERVIEW_CHART_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
-const overviewVisits = [12, 19, 15, 22, 18, 24, 20];
-const overviewActivity = [8, 14, 18, 16, 22, 19, 25];
-const overviewMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-const overviewMonthly = [4, 6, 10, 8, 12, 9];
-
-const overviewAreaData = OVERVIEW_CHART_DAYS.map((day, i) => ({
-  day,
-  visits: overviewVisits[i],
-  activity: overviewActivity[i],
-}));
-const overviewBarData = overviewMonths.map((m, i) => ({ month: m, count: overviewMonthly[i] }));
 const SPARKLINE_COLORS = ["#0d9488", "#059669", "#0891b2", "#f59e0b", "#94a3b8"];
+
+// Group an array of {created_at} items into the last 7 days (mon..sun ordered).
+function groupByLast7Days(items) {
+  const out = [];
+  const today = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    out.push({ key: d.getTime(), day: ["Su","Mo","Tu","We","Th","Fr","Sa"][d.getDay()], count: 0 });
+  }
+  for (const it of items) {
+    if (!it.created_at) continue;
+    const t = new Date(it.created_at);
+    t.setHours(0, 0, 0, 0);
+    const bucket = out.find(b => b.key === t.getTime());
+    if (bucket) bucket.count += 1;
+  }
+  return out;
+}
+
+// Group items into the last 6 months for a bar chart.
+function groupByLast6Months(items) {
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const out = [];
+  const today = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    out.push({ year: d.getFullYear(), month: d.getMonth(), label: months[d.getMonth()], count: 0 });
+  }
+  for (const it of items) {
+    if (!it.created_at) continue;
+    const t = new Date(it.created_at);
+    const bucket = out.find(b => b.year === t.getFullYear() && b.month === t.getMonth());
+    if (bucket) bucket.count += 1;
+  }
+  return out.map(({ label, count }) => ({ month: label, count }));
+}
 
 export default function AdminPage() {
   const useMock = useMockData();
@@ -386,6 +412,13 @@ export default function AdminPage() {
     return plan?.name || "Unknown";
   };
 
+  // ===== Real chart data derived from live users + submissions tables =====
+  // No fake numbers, no static arrays. Empty days/months render as 0 bars.
+  const submissionsByDay = useMemo(() => groupByLast7Days(submissions), [submissions]);
+  const registrationsByMonth = useMemo(() => groupByLast6Months(users), [users]);
+  const userInputsByDay = submissionsByDay; // alias for the KPI sparkline below
+  const usersSparkByDay = useMemo(() => groupByLast7Days(users), [users]);
+
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
@@ -475,13 +508,13 @@ export default function AdminPage() {
                 Key metrics and activity at a glance
               </Typography>
 
-              {/* KPI cards with sparklines */}
+              {/* KPI cards with sparklines (real data, last 7 days) */}
               <Grid container spacing={2} sx={{ mb: 3 }}>
                 {[
-                  { label: "Total Users", value: stats?.totalUsers ?? users.length, change: "+25%", icon: PeopleIcon, color: SPARKLINE_COLORS[0], spark: [2, 4, 5, 6, 8, 7, 9] },
-                  { label: "Locations", value: stats?.locations ?? locations.length, change: "+0%", icon: PlaceIcon, color: SPARKLINE_COLORS[2], spark: [1, 2, 2, 3, 3, 3, 4] },
-                  { label: "Business Types", value: stats?.businessTypes ?? businessTypes.length, change: "+0%", icon: StoreIcon, color: SPARKLINE_COLORS[3], spark: [3, 4, 5, 5, 5, 5, 5] },
-                  { label: "User Inputs", value: submissions.length, change: "", icon: TimelineIcon, color: SPARKLINE_COLORS[0], spark: [0, 1, 2, 2, 3, 3, 4] },
+                  { label: "Total Users", value: users.length, change: stats?.usersChange || "", icon: PeopleIcon, color: SPARKLINE_COLORS[0], spark: usersSparkByDay.map(d => d.count) },
+                  { label: "Locations", value: locations.length, change: "", icon: PlaceIcon, color: SPARKLINE_COLORS[2], spark: [locations.length, locations.length, locations.length, locations.length, locations.length, locations.length, locations.length] },
+                  { label: "Business Types", value: businessTypes.length, change: "", icon: StoreIcon, color: SPARKLINE_COLORS[3], spark: [businessTypes.length, businessTypes.length, businessTypes.length, businessTypes.length, businessTypes.length, businessTypes.length, businessTypes.length] },
+                  { label: "User Inputs", value: submissions.length, change: "", icon: TimelineIcon, color: SPARKLINE_COLORS[0], spark: userInputsByDay.map(d => d.count) },
                 ].map((k, idx) => (
                   <Grid item xs={6} md={4} lg={3} key={k.label}>
                     <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, height: "100%" }}>
@@ -514,15 +547,14 @@ export default function AdminPage() {
                 <Grid item xs={12} lg={7}>
                   <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, height: "100%" }}>
                     <CardContent sx={{ p: 2.5 }}>
-                      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>Activity overview</Typography>
+                      <Typography variant="subtitle1" fontWeight={600}>User searches (last 7 days)</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                        Number of Location Finder submissions per day
+                      </Typography>
                       <Box sx={{ height: 200 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={overviewAreaData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <AreaChart data={submissionsByDay} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                             <defs>
-                              <linearGradient id="visitsFill" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
-                                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                              </linearGradient>
                               <linearGradient id="activityFill" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor="#0d9488" stopOpacity={0.5} />
                                 <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
@@ -530,16 +562,11 @@ export default function AdminPage() {
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
                             <XAxis dataKey="day" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                            <YAxis domain={[0, 30]} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={24} />
+                            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={24} />
                             <Tooltip contentStyle={{ borderRadius: 8 }} />
-                            <Area type="monotone" dataKey="visits" stroke="#f59e0b" fill="url(#visitsFill)" strokeWidth={2} name="Visits" />
-                            <Area type="monotone" dataKey="activity" stroke="#0d9488" fill="url(#activityFill)" strokeWidth={2} name="Activity" />
+                            <Area type="monotone" dataKey="count" stroke="#0d9488" fill="url(#activityFill)" strokeWidth={2} name="Searches" />
                           </AreaChart>
                         </ResponsiveContainer>
-                      </Box>
-                      <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
-                        <Chip size="small" label="Visits" sx={{ bgcolor: "rgba(245, 158, 11, 0.2)", color: "#f59e0b" }} />
-                        <Chip size="small" label="Activity" sx={{ bgcolor: "rgba(13, 148, 136, 0.2)", color: "primary.main" }} />
                       </Box>
                     </CardContent>
                   </Card>
@@ -547,13 +574,16 @@ export default function AdminPage() {
                 <Grid item xs={12} lg={5}>
                   <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, height: "100%" }}>
                     <CardContent sx={{ p: 2.5 }}>
-                      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>Registrations by month</Typography>
+                      <Typography variant="subtitle1" fontWeight={600}>Registrations (last 6 months)</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                        Number of new users per month
+                      </Typography>
                       <Box sx={{ height: 200 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={overviewBarData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <BarChart data={registrationsByMonth} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" vertical={false} />
                             <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                            <YAxis domain={[0, 14]} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={20} />
+                            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={20} />
                             <Tooltip contentStyle={{ borderRadius: 8 }} cursor={{ fill: "rgba(13,148,136,0.06)" }} />
                             <Bar dataKey="count" fill="#0d9488" radius={[4, 4, 0, 0]} name="Registrations" />
                           </BarChart>

@@ -77,6 +77,7 @@ class AdminController extends Controller
                 'role' => $user->role,
                 'contact_number' => $user->contact_number,
                 'subscription_plan_id' => $user->subscription_plan_id,
+                'created_at' => $user->created_at?->toIso8601String(),
                 'lastActive' => $user->last_active_at ? $user->last_active_at->diffForHumans() : 'Never',
             ];
         });
