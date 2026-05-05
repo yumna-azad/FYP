@@ -123,7 +123,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState([]);
   const [businessTypes, setBusinessTypes] = useState([]);
   const [locations, setLocations] = useState([]);
-  const [areas, setAreas] = useState([]); // Nuwara Eliya neighbourhood data used by ML service
+  const [areas, setAreas] = useState([]); // 12 Nuwara Eliya neighbourhoods used in recommendations
   const [plans, setPlans] = useState([]);
   const [stats, setStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -848,17 +848,18 @@ export default function AdminPage() {
             </Box>
           )}
 
-          {/* Areas Tab . Nuwara Eliya neighbourhoods. The ML service fetches this data
-              with a 5-minute cache; admin edits trigger an immediate cache invalidation. */}
+          {/* Areas Tab. The 12 Nuwara Eliya neighbourhoods admin can edit.
+              Recommendations refresh within a few minutes of any edit. */}
           {tab === "areas" && (
             <Box sx={{ p: 3 }}>
               <Box sx={{ mb: 2 }}>
                 <Typography variant="h6" fontWeight={600}>
-                  Nuwara Eliya Areas (ML reference data)
+                  Nuwara Eliya Areas
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  This is the area data the ML service uses for per-area predictions.
-                  Edits here change the recommendation page within ~5 minutes (or instantly via the cache-refresh hook).
+                  These are the 12 neighbourhoods SmartLoc recommends from. Edit rent, footfall,
+                  competition, customer types, strategy or recommended action. Changes show up on
+                  the user recommendations page within a few minutes.
                 </Typography>
               </Box>
               <Table size="small">
@@ -897,7 +898,7 @@ export default function AdminPage() {
                   {areas.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} sx={{ textAlign: "center", color: "text.secondary", py: 4 }}>
-                        No areas yet. Click "Add Area" to add one, or run <code>php artisan db:seed --class=AreaSeeder</code> to load the 12 default Nuwara Eliya neighbourhoods.
+                        No areas yet. Click "Add Area" to add one.
                       </TableCell>
                     </TableRow>
                   )}
@@ -1384,7 +1385,7 @@ export default function AdminPage() {
                   onChange={(e) => setForm({ ...form, data_completeness: e.target.value })}
                   margin="dense"
                   inputProps={{ min: 1, max: 5 }}
-                  helperText="Drives the per-card Confidence label. 5 = rich data, 1 = limited."
+                  helperText="How rich the data is for this area. 5 = rich, 1 = limited."
                   sx={{ width: 240 }}
                 />
               </>
