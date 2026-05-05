@@ -226,7 +226,7 @@ export default function AdminPage() {
     setEditingId(null);
     if (type === "user") {
       const defaultPlanId = plans.length > 0 ? plans[0].id : null;
-      setForm({ name: "", email: "", subscription_plan_id: defaultPlanId, status: "Active" });
+      setForm({ name: "", email: "", contact_number: "", password: "", role: "Location planner", subscription_plan_id: defaultPlanId });
     }
     if (type === "business") setForm({ name: "", count: "", growth: "+0%" });
     if (type === "location") setForm({ name: "", address: "", type: "", score: "" });
@@ -259,20 +259,24 @@ export default function AdminPage() {
   const handleSave = async () => {
     try {
       if (dialogType === "user") {
-        const { name, email, subscription_plan_id, status } = form;
+        const { name, email, subscription_plan_id, contact_number, role, password } = form;
         if (!name || !email) return;
-        
+
         if (useMock) {
           if (editingId) {
-            setUsers((prev) => prev.map((u) => (u.id === editingId ? { ...u, name, email, subscription_plan_id, status } : u)));
+            setUsers((prev) => prev.map((u) => (u.id === editingId ? { ...u, name, email, subscription_plan_id, contact_number, role } : u)));
           } else {
-            setUsers((prev) => [...prev, { id: Date.now(), name, email, subscription_plan_id, status, lastActive: "Just now" }]);
+            setUsers((prev) => [...prev, { id: Date.now(), name, email, subscription_plan_id, contact_number, role: role || "Location planner", lastActive: "Just now" }]);
           }
         } else {
+          const payload = { name, email, subscription_plan_id, contact_number: contact_number || null };
+          if (role) payload.role = role;
           if (editingId) {
-            await adminAPI.updateUser(editingId, { name, email, subscription_plan_id, status });
+            await adminAPI.updateUser(editingId, payload);
           } else {
-            await adminAPI.createUser({ name, email, subscription_plan_id, status });
+            // Backend requires a password on create. Use a default if admin
+            // didn't set one; user can reset later via change-password.
+            await adminAPI.createUser({ ...payload, password: password || "ChangeMe123" });
           }
           await loadAllData();
         }
@@ -650,8 +654,9 @@ export default function AdminPage() {
                 <TableHead>
                   <TableRow sx={{ bgcolor: "action.hover" }}>
                     <TableCell sx={{ fontWeight: 600 }}>User</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Contact</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Role</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Subscription Plan</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Last Active</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 600 }}>
                       Actions
@@ -682,14 +687,24 @@ export default function AdminPage() {
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Chip 
-                          label={getUserPlanName(user.id)} 
-                          size="small" 
-                          color={user.subscription_plan_id ? "primary" : "default"} 
+                        <Typography variant="body2" color="text.secondary">
+                          {user.contact_number || "."}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={user.role || "Location planner"}
+                          size="small"
+                          variant="outlined"
+                          color={user.role === "admin" ? "primary" : "default"}
                         />
                       </TableCell>
                       <TableCell>
-                        <Chip label={user.status} size="small" variant={user.status === "Active" ? "outlined" : "filled"} color={user.status === "Active" ? "success" : "default"} />
+                        <Chip
+                          label={getUserPlanName(user.id)}
+                          size="small"
+                          color={user.subscription_plan_id ? "primary" : "default"}
+                        />
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" color="text.secondary">
@@ -1270,6 +1285,10 @@ export default function AdminPage() {
               <>
                 <TextField fullWidth label="Name" value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} margin="dense" required />
                 <TextField fullWidth label="Email" type="email" value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} margin="dense" required />
+                <TextField fullWidth label="Contact number" value={form.contact_number || ""} onChange={(e) => setForm({ ...form, contact_number: e.target.value })} margin="dense" placeholder="+94 77 123 4567" />
+                {!editingId && (
+                  <TextField fullWidth label="Initial password" type="text" value={form.password || ""} onChange={(e) => setForm({ ...form, password: e.target.value })} margin="dense" placeholder="leave blank for default ChangeMe123" helperText="Tell the user. They can change it later from their profile." />
+                )}
                 <FormControl fullWidth margin="dense">
                   <InputLabel>Subscription Plan</InputLabel>
                   <Select
@@ -1280,14 +1299,14 @@ export default function AdminPage() {
                     <MenuItem value="">No plan</MenuItem>
                     {plans.map((plan) => (
                       <MenuItem key={plan.id} value={plan.id}>
-                        {plan.name} {plan.price ? `($${plan.price})` : ""}
+                        {plan.name} {plan.price ? `(LKR ${Number(plan.price).toLocaleString()})` : ""}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-                <TextField fullWidth select SelectProps={{ native: true }} label="Status" value={form.status || "Active"} onChange={(e) => setForm({ ...form, status: e.target.value })} margin="dense">
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
+                <TextField fullWidth select SelectProps={{ native: true }} label="Role" value={form.role || "Location planner"} onChange={(e) => setForm({ ...form, role: e.target.value })} margin="dense">
+                  <option value="Location planner">Location planner</option>
+                  <option value="admin">admin</option>
                 </TextField>
               </>
             )}

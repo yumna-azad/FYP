@@ -75,6 +75,7 @@ class AdminController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
+                'contact_number' => $user->contact_number,
                 'subscription_plan_id' => $user->subscription_plan_id,
                 'lastActive' => $user->last_active_at ? $user->last_active_at->diffForHumans() : 'Never',
             ];
@@ -92,6 +93,7 @@ class AdminController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:6',
+            'contact_number' => 'nullable|string|max:32',
             'subscription_plan_id' => 'nullable|exists:subscription_plans,id',
             'role' => 'sometimes|string',
         ]);
@@ -100,6 +102,7 @@ class AdminController extends Controller
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => bcrypt($validated['password']),
+            'contact_number' => $validated['contact_number'] ?? null,
             'subscription_plan_id' => $validated['subscription_plan_id'] ?? null,
             'role' => $validated['role'] ?? 'Location planner',
         ]);
@@ -117,6 +120,7 @@ class AdminController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|unique:users,email,' . $id,
+            'contact_number' => 'nullable|string|max:32',
             'subscription_plan_id' => 'nullable|exists:subscription_plans,id',
             'role' => 'sometimes|string',
         ]);
