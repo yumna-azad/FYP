@@ -108,13 +108,13 @@ export default function MapView({ locations = [], center, zoom = defaultZoom, se
         const selected = loc.id === selectedId;
         const icon = loc.scoreColor
           ? getCachedIcon(loc.scoreColor, String(loc.rank ?? ""), selected)
-          : undefined;
+          : null;
 
         return (
           <Marker
             key={loc.id}
             position={[loc.lat, loc.lng]}
-            icon={icon}
+            {...(icon ? { icon } : {})}
             zIndexOffset={selected ? 1000 : 0}
             ref={(r) => {
               if (r) markerRefs.current[loc.id] = r;

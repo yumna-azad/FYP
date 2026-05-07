@@ -38,7 +38,6 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import TimelineIcon from "@mui/icons-material/Timeline";
 import SpaceDashboardIcon from "@mui/icons-material/SpaceDashboard";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -93,14 +92,6 @@ function saveData(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
-// Mock transaction history for admin management
-const defaultTransactions = [
-  { id: "t1", date: "2024-01-15", user: "John Smith", type: "Subscription Pro", amount: "LKR 9,990", status: "Completed" },
-  { id: "t2", date: "2024-01-14", user: "Sarah Johnson", type: "Free tier", amount: "—", status: "Active" },
-  { id: "t3", date: "2024-01-12", user: "Admin", type: "Location export", amount: "—", status: "Completed" },
-  { id: "t4", date: "2024-01-10", user: "System", type: "Plan renewal", amount: "LKR 9,990", status: "Completed" },
-];
-
 const OVERVIEW_CHART_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const overviewVisits = [12, 19, 15, 22, 18, 24, 20];
 const overviewActivity = [8, 14, 18, 16, 22, 19, 25];
@@ -123,12 +114,6 @@ export default function AdminPage() {
   const setTab = (value) => {
     setSearchParams({ tab: value }, { replace: true });
   };
-  const [transactions] = useState(() => {
-    try {
-      const s = localStorage.getItem("smartloc_admin_transactions");
-      return s ? JSON.parse(s) : defaultTransactions;
-    } catch { return defaultTransactions; }
-  });
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -376,7 +361,7 @@ export default function AdminPage() {
               Admin Dashboard
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Admin management: users, business types, locations, transactions
+              Admin management: users, business types, locations
             </Typography>
           </Box>
           {(tab === "users" || tab === "business" || tab === "locations") && (
@@ -436,7 +421,6 @@ export default function AdminPage() {
                   { label: "Locations", value: stats?.locations ?? locations.length, change: "+0%", icon: PlaceIcon, color: SPARKLINE_COLORS[2], spark: [1, 2, 2, 3, 3, 3, 4] },
                   { label: "Business Types", value: stats?.businessTypes ?? businessTypes.length, change: "+0%", icon: StoreIcon, color: SPARKLINE_COLORS[3], spark: [3, 4, 5, 5, 5, 5, 5] },
                   { label: "User Inputs", value: submissions.length, change: useMock ? "—" : "—", icon: TimelineIcon, color: SPARKLINE_COLORS[0], spark: [0, 1, 2, 2, 3, 3, 4] },
-                  { label: "Transactions", value: transactions.length, change: "—", icon: ReceiptLongIcon, color: SPARKLINE_COLORS[4], spark: [2, 3, 3, 4, 4, 4, 4] },
                 ].map((k, idx) => (
                   <Grid item xs={6} md={4} lg={2} key={k.label}>
                     <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, height: "100%" }}>
@@ -524,19 +508,20 @@ export default function AdminPage() {
                       {businessTypes.length === 0 ? (
                         <Typography variant="body2" color="text.secondary">No business types yet.</Typography>
                       ) : (
-                        <Box sx={{ height: 180, display: "flex", alignItems: "center", gap: 2 }}>
-                          <Box sx={{ width: "50%", height: 160 }}>
+                        <Box sx={{ height: 320, display: "flex", alignItems: "center", gap: 2 }}>
+                          <Box sx={{ flex: 1, height: 300 }}>
                             <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
+                              <PieChart margin={{ top: 16, right: 16, bottom: 16, left: 16 }}>
                                 <Pie
                                   data={businessTypes.map((t, i) => ({ name: t.name, value: t.count || 0 }))}
                                   cx="50%"
                                   cy="50%"
-                                  innerRadius={48}
-                                  outerRadius={72}
+                                  innerRadius={78}
+                                  outerRadius={120}
                                   paddingAngle={2}
                                   dataKey="value"
-                                  label={({ name, value }) => `${name} ${value}`}
+                                  label={({ value }) => value}
+                                  labelLine={false}
                                 >
                                   {businessTypes.map((_, i) => (
                                     <Cell key={i} fill={["#0d9488", "#059669", "#0891b2", "#f59e0b", "#94a3b8"][i % 5]} />
@@ -564,13 +549,12 @@ export default function AdminPage() {
                   <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
                     <CardContent sx={{ p: 2.5 }}>
                       <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>Quick admin actions</Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Manage users, business types, locations, and view transactions from the sidebar.</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Manage users, business types, and locations from the sidebar.</Typography>
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
                         <Button size="small" variant="outlined" startIcon={<PeopleIcon />} onClick={() => setTab("users")}>Add User</Button>
                         <Button size="small" variant="outlined" startIcon={<StoreIcon />} onClick={() => setTab("business")}>Add Business Type</Button>
                         <Button size="small" variant="outlined" startIcon={<PlaceIcon />} onClick={() => setTab("locations")}>Add Location</Button>
                         <Button size="small" variant="outlined" startIcon={<TimelineIcon />} onClick={() => setTab("inputs")}>User Inputs</Button>
-                        <Button size="small" variant="outlined" startIcon={<ReceiptLongIcon />} onClick={() => setTab("transactions")}>Transaction History</Button>
                       </Box>
                     </CardContent>
                   </Card>
@@ -858,52 +842,6 @@ export default function AdminPage() {
             </Box>
           )}
 
-          {/* Transaction History Tab - Admin management */}
-          {tab === "transactions" && (
-            <Box sx={{ p: 3 }}>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="h6" fontWeight={600}>
-                  Transaction History
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  View and manage all transactions (subscriptions, renewals, exports)
-                </Typography>
-              </Box>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "action.hover" }}>
-                    <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>User</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {transactions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                        No transactions yet.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    transactions.map((tx) => (
-                      <TableRow key={tx.id} hover>
-                        <TableCell>{tx.date}</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>{tx.user}</TableCell>
-                        <TableCell>{tx.type}</TableCell>
-                        <TableCell>{tx.amount}</TableCell>
-                        <TableCell>
-                          <Chip label={tx.status} size="small" color={tx.status === "Completed" ? "success" : "default"} variant="outlined" />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </Box>
-          )}
-
           {/* Analytics Tab */}
           {tab === "analytics" && (
             <Box sx={{ p: 3 }}>
@@ -1009,7 +947,7 @@ export default function AdminPage() {
                           Business Types Distribution
                         </Typography>
                       </Box>
-                      <Box sx={{ height: 250, display: "flex", flexDirection: "column", justifyContent: "center", gap: 2 }}>
+                      <Box sx={{ minHeight: 250, display: "flex", flexDirection: "column", gap: 2 }}>
                         {businessTypes.length > 0 ? (
                           businessTypes.map((bt, i) => {
                             const maxCount = Math.max(...businessTypes.map(b => parseInt(b.count || 0)), 1);
@@ -1078,7 +1016,7 @@ export default function AdminPage() {
                           Location Scores Distribution
                         </Typography>
                       </Box>
-                      <Box sx={{ height: 250, display: "flex", flexDirection: "column", justifyContent: "center", gap: 2 }}>
+                      <Box sx={{ minHeight: 250, display: "flex", flexDirection: "column", gap: 2 }}>
                         {locations.length > 0 ? (
                           locations.slice(0, 5).map((loc, i) => {
                             const score = parseInt(loc.score || 0);
