@@ -788,11 +788,30 @@ export default function RecommendationsPage() {
         <DialogContent dividers>
           {(() => {
             const selected = recommendations.filter((r) => compareSet.has(r.id));
+            // Labels combine the raw % with a plain-English category so the
+            // user doesn't have to interpret "Low competition: 5%" (was a
+            // double-negative — low score on a 'low competition' metric
+            // actually meant LOTS of competition).
+            const budgetLabel = (v) =>
+              v >= 75 ? "Fits your budget well"
+              : v >= 50 ? "Within range"
+              : v >= 25 ? "A stretch"
+              : "Above your budget";
+            const customersLabel = (v) =>
+              v >= 70 ? "Strong walk-in flow"
+              : v >= 45 ? "Moderate flow"
+              : "Low walk-in — needs marketing";
+            // lowCompetition: 100 = no competition at all, 0 = saturated
+            const competitionLabel = (v) =>
+              v >= 70 ? "Few similar businesses"
+              : v >= 45 ? "Moderate — some competition"
+              : "Many similar businesses already here";
+
             const rows = [
               { k: "Suitability score", v: (l) => <Chip size="small" label={`${l.score}/100 · ${getScoreBand(l.score).label}`} sx={{ bgcolor: getScoreBand(l.score).bg, color: getScoreBand(l.score).color, fontWeight: 500 }} /> },
-              { k: "Budget fit", v: (l) => `${l.metrics.budgetFit}%` },
-              { k: "Walk-in customers", v: (l) => `${l.metrics.footfall}%` },
-              { k: "Low competition", v: (l) => `${l.metrics.lowCompetition}%` },
+              { k: "Budget", v: (l) => `${budgetLabel(l.metrics.budgetFit)} (${l.metrics.budgetFit}%)` },
+              { k: "Walk-in customers", v: (l) => `${customersLabel(l.metrics.footfall)} (${l.metrics.footfall}%)` },
+              { k: "Competition nearby", v: (l) => `${competitionLabel(l.metrics.lowCompetition)} (${l.metrics.lowCompetition}% open)` },
               { k: "Character", v: (l) => l.highlights.join(", ") },
               { k: "Things to consider", v: (l) => l.notes.length ? l.notes.map((n) => n.title).join("; ") : "No major flags" },
             ];
