@@ -400,21 +400,6 @@ export default function RecommendationsPage() {
         </Box>
       </motion.div>
 
-      {/* ────────── 1.5. Live commercial listings — page-level ────────── */}
-      {/* Shown ONCE at the page level (not per area) because ikman.lk lists by
-          city, not neighbourhood — so the same Nuwara Eliya listings would
-          appear identically on every area card if we placed this per-area. */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.2, ease }}>
-        <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-          <LiveListings
-            area="Nuwara Eliya"
-            intent={(() => { try { return JSON.parse(sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY) || "{}").landIntent || "rent"; } catch { return "rent"; } })()}
-            budget={(() => { try { return Number(JSON.parse(sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY) || "{}").amount || 0); } catch { return 0; } })()}
-            businessType={data?.business_type || ""}
-          />
-        </Paper>
-      </motion.div>
-
       {/* ────────── 2. Ranked list (left) + Map (right) ────────── */}
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 3, alignItems: "start" }}>
         {/* Ranked list */}
@@ -750,6 +735,17 @@ export default function RecommendationsPage() {
             )}
 
 
+            {/* Live ikman.lk listings — filtered to titles mentioning this area */}
+            <Box sx={{ mt: 4 }}>
+              <LiveListings
+                area={selectedLocation.name}
+                intent={(() => { try { return JSON.parse(sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY) || "{}").landIntent || "rent"; } catch { return "rent"; } })()}
+                budget={(() => { try { return Number(JSON.parse(sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY) || "{}").amount || 0); } catch { return 0; } })()}
+                businessType={data?.business_type || ""}
+                areaSpecific
+              />
+            </Box>
+
             {/* Find available properties - real-world resources for this area */}
             <Box sx={{ mt: 4 }}>
               <Typography sx={{ fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", color: "text.secondary", fontWeight: 500, mb: 1 }}>
@@ -1025,7 +1021,7 @@ function propertyResources(areaName, businessType, landIntent) {
 // our Laravel /api/listings endpoint (server-side cache, 1h TTL). Renders
 // a loading skeleton, an empty/error state, and a grid of cards with image,
 // title, price, and a link out to the original ad on ikman.lk.
-function LiveListings({ area, intent, budget, businessType }) {
+function LiveListings({ area, intent, budget, businessType, areaSpecific = false }) {
   const [state, setState] = React.useState({ loading: true, payload: null, error: null });
   const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
@@ -1038,21 +1034,25 @@ function LiveListings({ area, intent, budget, businessType }) {
     });
     if (Number(budget) > 0) params.set("budget", String(Number(budget)));
     if (businessType) params.set("business_type", businessType);
+    if (areaSpecific) params.set("area_specific", "1");
     fetch(`${apiBase}/api/listings?${params.toString()}`)
       .then((r) => r.json())
       .then((j) => { if (!cancelled) setState({ loading: false, payload: j, error: null }); })
       .catch((e) => { if (!cancelled) setState({ loading: false, payload: null, error: e.message }); });
     return () => { cancelled = true; };
-  }, [area, intent, budget, businessType, apiBase]);
+  }, [area, intent, budget, businessType, areaSpecific, apiBase]);
 
   return (
     <Box>
       <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1 }}>
         <Typography sx={{ fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", color: "text.secondary", fontWeight: 500 }}>
-          Live commercial properties in Nuwara Eliya
+          {areaSpecific ? `Properties mentioning ${area}` : `Live commercial properties in Nuwara Eliya`}
         </Typography>
         {state.payload?.live && (
           <Chip size="small" label="Live · ikman.lk" sx={{ height: 18, fontSize: 9.5, bgcolor: "rgba(13,148,136,0.12)", color: "primary.main", fontWeight: 500 }} />
+        )}
+        {areaSpecific && state.payload?.area_match === false && (
+          <Chip size="small" label="No area-specific listings" sx={{ height: 18, fontSize: 9.5, bgcolor: "rgba(185,28,28,0.10)", color: "#b91c1c", fontWeight: 500 }} />
         )}
       </Stack>
       {/* Filter chips — make the alignment between user input and filter visible */}
@@ -1076,17 +1076,21 @@ function LiveListings({ area, intent, budget, businessType }) {
       </Stack>
 
       <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mb: 2 }}>
-        ikman.lk lists commercial properties at the city level, not by individual neighbourhood — so these listings apply to every recommended area below. {" "}
+        {areaSpecific
+          ? state.payload?.area_match === false
+            ? `ikman.lk has no commercial listings whose title mentions "${area}" right now. The closest data we have is the broader Nuwara Eliya commercial pool — click an external platform below to browse all of it. `
+            : `Filtered to listings whose title mentions "${area}" — these are properties most likely to be in or near your selected area. `
+          : `ikman.lk lists commercial properties at the city level, not by neighbourhood. `}
         {state.payload?.user_budget_lkr && state.payload?.budget_filter === "tight" && (
-          <>Filtered to within ±50% of your LKR {state.payload.user_budget_lkr.toLocaleString()} {intent === "purchase" ? "purchase" : "rent"} budget. </>
+          <>Within ±50% of your LKR {state.payload.user_budget_lkr.toLocaleString()} {intent === "purchase" ? "purchase" : "rent"} budget. </>
         )}
         {state.payload?.user_budget_lkr && state.payload?.budget_filter === "wide" && (
-          <>Showing a wider range (no exact matches at LKR {state.payload.user_budget_lkr.toLocaleString()} for {intent === "purchase" ? "purchase" : "rent"}). </>
+          <>Wider range (no exact matches at LKR {state.payload.user_budget_lkr.toLocaleString()} for {intent === "purchase" ? "purchase" : "rent"}). </>
         )}
         {state.payload?.user_budget_lkr && state.payload?.budget_filter === "none" && (
-          <>No listings matched your LKR {state.payload.user_budget_lkr.toLocaleString()} budget — showing all available. </>
+          <>No listings matched your LKR {state.payload.user_budget_lkr.toLocaleString()} budget. </>
         )}
-        For area-specific data, click "See your competition" on each recommendation card.
+        Click any card to open the original ad.
       </Typography>
 
       {state.loading && (

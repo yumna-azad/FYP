@@ -22,6 +22,7 @@ class ListingsController extends Controller
         $intent = $request->query('intent') === 'purchase' ? 'sale' : 'rent';
         $budget = (float) $request->query('budget', 0);
         $businessType = trim((string) $request->query('business_type', ''));
+        $areaSpecific = $request->query('area_specific') === '1';
         if (!$area) {
             return response()->json([
                 'listings' => [],
@@ -31,11 +32,82 @@ class ListingsController extends Controller
             ], 422);
         }
 
-        $cacheKey = 'listings.' . md5($area . '|' . $intent . '|' . $budget . '|' . $businessType);
-        $payload = Cache::remember($cacheKey, 3600, function () use ($area, $intent, $budget, $businessType) {
-            return $this->fetchFromIkman($area, $intent, $budget, $businessType);
+        $cacheKey = 'listings.' . md5($area . '|' . $intent . '|' . $budget . '|' . $businessType . '|' . ($areaSpecific ? '1' : '0'));
+        $payload = Cache::remember($cacheKey, 3600, function () use ($area, $intent, $budget, $businessType, $areaSpecific) {
+            $result = $this->fetchFromIkman($area, $intent, $budget, $businessType);
+            // When the caller wants area-specific results, filter the broad
+            // pool by area-name-in-title. ikman.lk doesn't tag neighbourhoods
+            // structurally so we look for the area name (and known aliases)
+            // in the listing title text.
+            if ($areaSpecific && !empty($result['listings']) && ($result['broadened'] ?? false)) {
+                $filtered = $this->filterByAreaInTitle($result['listings'], $area);
+                $result['area_filtered_count'] = count($filtered);
+                if (count($filtered) > 0) {
+                    $result['listings'] = $filtered;
+                    $result['count'] = count($filtered);
+                    $result['area_match'] = true;
+                } else {
+                    // Honest: nothing in our scraped pool mentions this area
+                    $result['listings'] = [];
+                    $result['count'] = 0;
+                    $result['area_match'] = false;
+                }
+            }
+            return $result;
         });
         return response()->json($payload);
+    }
+
+    /**
+     * Known aliases per Nuwara Eliya area for title-text matching. Listings
+     * on ikman.lk often don't use the formal area name in their titles, so
+     * we accept a broader set of identifying keywords per neighbourhood.
+     */
+    private function areaAliases(string $area): array
+    {
+        $key = strtolower(trim($area));
+        $map = [
+            'town centre' => ['town centre', 'town center', 'main street', 'town', 'central'],
+            'town centre / main street' => ['town centre', 'town center', 'main street', 'town'],
+            'gregory lake front' => ['gregory', 'lake gregory', 'lake front', 'lakefront', 'lake'],
+            'hakgala road' => ['hakgala'],
+            'pedro / hill club area' => ['pedro', 'hill club'],
+            'pedro' => ['pedro', 'hill club'],
+            'nanu oya' => ['nanu oya', 'nanuoya'],
+            'ambewela' => ['ambewela'],
+            'kandapola' => ['kandapola'],
+            'glencairn' => ['glencairn'],
+            'hawa eliya' => ['hawa eliya', 'hawaeliya'],
+            'lover\'s leap' => ['lover', 'lovers leap', 'leap'],
+            'lovers leap' => ['lover', 'lovers leap', 'leap'],
+            'seetha eliya' => ['seetha', 'sita eliya', 'sitha eliya'],
+            'tea estates belt' => ['tea estate', 'tea-estate', 'estate'],
+        ];
+        if (isset($map[$key])) {
+            return $map[$key];
+        }
+        // Fallback: split the area name on punctuation/whitespace and use the tokens
+        $tokens = preg_split('/[\s\/,\-]+/', $key);
+        $tokens = array_filter($tokens, fn($t) => strlen($t) >= 3);
+        return array_values($tokens);
+    }
+
+    private function filterByAreaInTitle(array $listings, string $area): array
+    {
+        $aliases = $this->areaAliases($area);
+        if (empty($aliases)) return $listings;
+
+        $matches = [];
+        foreach ($listings as $L) {
+            $title = strtolower($L['title'] ?? '');
+            foreach ($aliases as $alias) {
+                if ($alias && str_contains($title, $alias)) {
+                    $matches[] = $L;
+                    break;
+                }
+            }
+        }
+        return $matches;
     }
 
     private function fetchFromIkman(string $area, string $intent, float $budget, string $businessType): array
