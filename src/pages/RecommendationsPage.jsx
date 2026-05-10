@@ -25,6 +25,8 @@ import ShareIcon from "@mui/icons-material/Share";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import CloseIcon from "@mui/icons-material/Close";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
+import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import ReplayIcon from "@mui/icons-material/Replay";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import MapView from "../components/MapView.jsx";
@@ -732,6 +734,59 @@ export default function RecommendationsPage() {
               </Box>
             )}
 
+            {/* Find available properties - real-world resources for this area */}
+            <Box sx={{ mt: 4 }}>
+              <Typography sx={{ fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", color: "text.secondary", fontWeight: 500, mb: 1 }}>
+                Find available properties
+              </Typography>
+              <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mb: 2 }}>
+                External property platforms — open in a new tab to browse real listings in {selectedLocation.name}.
+              </Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 1.5 }}>
+                {propertyResources(
+                  selectedLocation.name,
+                  data?.business_type || "",
+                  (() => { try { return JSON.parse(sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY) || "{}").landIntent || "rent"; } catch { return "rent"; } })()
+                ).map((r) => (
+                  <Paper
+                    key={r.name}
+                    variant="outlined"
+                    component="a"
+                    href={r.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      textDecoration: "none",
+                      color: "inherit",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1.5,
+                      transition: "border-color 0.2s, transform 0.15s",
+                      "&:hover": { borderColor: "primary.main", transform: "translateY(-1px)" },
+                    }}
+                  >
+                    <Box sx={{ width: 36, height: 36, borderRadius: 1.5, bgcolor: "rgba(13, 148, 136, 0.10)", color: "primary.main", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {r.name === "Google Maps" ? <LocationOnOutlinedIcon sx={{ fontSize: 20 }} /> : <HomeWorkOutlinedIcon sx={{ fontSize: 20 }} />}
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight={600} noWrap>
+                        {r.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
+                        {r.sub}
+                      </Typography>
+                    </Box>
+                    <OpenInNewIcon sx={{ fontSize: 16, color: "text.secondary", flexShrink: 0 }} />
+                  </Paper>
+                ))}
+              </Box>
+              <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mt: 1.5, fontStyle: "italic" }}>
+                Listings are operated by external platforms. SmartLoc doesn't host or verify properties — always inspect in person before signing.
+              </Typography>
+            </Box>
+
             {/* Actions */}
             <Stack direction="row" spacing={1.5} sx={{ mt: 4 }}>
               <Button variant="contained" endIcon={<OpenInNewIcon />} onClick={() => setReportOpen(true)} sx={{ borderRadius: 999, textTransform: "none" }}>
@@ -900,6 +955,46 @@ export default function RecommendationsPage() {
 }
 
 // ===== Helpers used by the Full ranking dialog and its PDF export =====
+
+// Build a list of "find a real property" search links for a given area.
+// Uses Google's site: filter so the URLs are guaranteed to land on real
+// listings even when we don't know each platform's exact internal URL
+// pattern. Direct ikman.lk URL is documented and reliable.
+function propertyResources(areaName, businessType, landIntent) {
+  const intent = landIntent === "purchase" ? "for sale" : "for rent";
+  const cleanArea = String(areaName || "").replace(/[^\w\s]/g, " ").trim();
+  const niceType = String(businessType || "").replace(/_/g, " ");
+  const baseQ = `${cleanArea} Nuwara Eliya commercial ${intent}`;
+  const enc = encodeURIComponent;
+
+  return [
+    {
+      name: "LankaPropertyWeb",
+      sub: `${cleanArea} listings ${intent}`,
+      url: `https://www.google.com/search?q=${enc(baseQ + " site:lankapropertyweb.com")}`,
+    },
+    {
+      name: "ikman.lk",
+      sub: `Browse ${cleanArea} ads`,
+      url: `https://ikman.lk/en/ads/sri-lanka/property?query=${enc(cleanArea + " " + intent)}`,
+    },
+    {
+      name: "House.lk",
+      sub: `${cleanArea} commercial`,
+      url: `https://www.google.com/search?q=${enc(baseQ + " site:house.lk")}`,
+    },
+    {
+      name: "Google search",
+      sub: `All sites · ${niceType} ${intent}`,
+      url: `https://www.google.com/search?q=${enc(`${cleanArea} Nuwara Eliya ${niceType} ${intent}`)}`,
+    },
+    {
+      name: "Google Maps",
+      sub: "See the area on the map",
+      url: `https://www.google.com/maps/search/${enc(cleanArea + ", Nuwara Eliya, Sri Lanka")}`,
+    },
+  ];
+}
 
 function _esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
