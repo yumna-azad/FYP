@@ -120,6 +120,37 @@ class ListingsController extends Controller
     }
 
     /**
+     * Drop listings whose title is clearly NOT in Nuwara Eliya. ikman.lk's
+     * full-text search is fuzzy and will return Colombo / Mt Lavinia /
+     * Nugegoda commercial rentals when we search broad terms, even with
+     * "Nuwara Eliya" in the query. We post-filter strictly: a listing is
+     * kept only if its title mentions "Nuwara Eliya" itself OR one of the
+     * known Nuwara Eliya neighbourhood aliases. Anything else is rejected.
+     */
+    private function restrictToNuwaraEliya(array $listings): array
+    {
+        // Build a flat set of all NE-identifying keywords
+        $keywords = ['nuwara eliya'];
+        $allAreas = ['town centre', 'town center', 'gregory', 'lake gregory',
+                     'hakgala', 'pedro', 'hill club', 'nanu oya', 'ambewela',
+                     'kandapola', 'glencairn', 'hawa eliya', 'lover', 'leap',
+                     'seetha', 'sita eliya', 'tea estate'];
+        $keywords = array_merge($keywords, $allAreas);
+
+        $kept = [];
+        foreach ($listings as $L) {
+            $title = strtolower($L['title'] ?? '');
+            foreach ($keywords as $kw) {
+                if ($kw && str_contains($title, $kw)) {
+                    $kept[] = $L;
+                    break;
+                }
+            }
+        }
+        return $kept;
+    }
+
+    /**
      * Known aliases per Nuwara Eliya area for title-text matching. Listings
      * on ikman.lk often don't use the formal area name in their titles, so
      * we accept a broader set of identifying keywords per neighbourhood.
@@ -187,20 +218,20 @@ class ListingsController extends Controller
 
         // Priority list of (path, query) pairs. Earlier entries are more
         // specific; later entries are progressively broader fallbacks.
+        // EVERY entry includes "Nuwara Eliya" in its query — ikman.lk's
+        // commercial categories are nationwide and will surface Colombo /
+        // Mt Lavinia / Nugegoda listings if we search without it.
         $attempts = [];
         // 1) Commercial category + area + Nuwara Eliya
         $attempts[] = [$commercialCategoryPath, $areaWithNE];
-        // 2) Commercial category + Nuwara Eliya only (when area-specific is too narrow)
+        // 2) Commercial category + Nuwara Eliya only
         $attempts[] = [$commercialCategoryPath, 'Nuwara Eliya'];
-        // 3) Commercial category, no query (whole NE area in this category)
-        $attempts[] = [$commercialCategoryPath, ''];
-        // 4) Generic property category with business-type bias (fallback when
-        //    commercial category is empty for the area, e.g. retail rentals).
+        // 3) Generic property category with business-type bias
         if ($bizHint) {
             $attempts[] = ['/en/ads/sri-lanka/property', "$areaWithNE $bizHint $verb"];
             $attempts[] = ['/en/ads/sri-lanka/property', "Nuwara Eliya $bizHint $verb"];
         }
-        // 5) Generic property category broad fallback
+        // 4) Generic property category broad fallback (still NE-anchored)
         $attempts[] = ['/en/ads/sri-lanka/property', "Nuwara Eliya $verb"];
 
         $lastUrl = '';
@@ -214,6 +245,11 @@ class ListingsController extends Controller
                     continue;
                 }
                 $allListings = $this->parseIkmanListings($html);
+                // STRICT geo filter: only keep listings whose title mentions
+                // Nuwara Eliya or one of its neighbourhood aliases. ikman.lk's
+                // search is fuzzy and surfaces Colombo / Mt Lavinia / Nugegoda
+                // results otherwise. This is the most important filter.
+                $allListings = $this->restrictToNuwaraEliya($allListings);
                 // Drop residential-only titles (bungalow/villa/room/annex) for
                 // non-hotel business types — they're not realistic SME spaces.
                 $allListings = $this->dropResidentialIfBusiness($allListings, $businessType);
