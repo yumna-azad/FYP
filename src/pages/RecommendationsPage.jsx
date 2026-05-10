@@ -24,6 +24,7 @@ import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import ShareIcon from "@mui/icons-material/Share";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import CloseIcon from "@mui/icons-material/Close";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import ReplayIcon from "@mui/icons-material/Replay";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import MapView from "../components/MapView.jsx";
@@ -217,6 +218,10 @@ export default function RecommendationsPage() {
       typicalRentLkr: r.typical_rent_lkr,
       typicalPurchaseLkr: r.typical_purchase_lkr,
       budgetDeltaPct: r.budget_delta_pct,
+      // Per-area SHAP from FastAPI (empty arrays / null when SHAP unavailable)
+      shapTopDrivers: r.shap_top_drivers || [],
+      shapMath: r.shap_math || null,
+      modelScore: r.model_score ?? null,
       notes: AREA_NOTES[r.area] || [],
     }));
   }, [data]);
@@ -782,13 +787,24 @@ export default function RecommendationsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Full ranking dialog (existing) */}
+      {/* Full ranking dialog with Download PDF */}
       <Dialog open={reportOpen} onClose={() => setReportOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pr: 1 }}>
           <Typography className="font-display" sx={{ fontSize: "1.5rem", letterSpacing: "-0.02em" }}>
             Full ranking
           </Typography>
-          <IconButton size="small" onClick={() => setReportOpen(false)}><CloseIcon /></IconButton>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<PictureAsPdfIcon />}
+              onClick={() => exportRankingPdf(recommendations, businessLabel, data)}
+              sx={{ textTransform: "none" }}
+            >
+              Download PDF
+            </Button>
+            <IconButton size="small" onClick={() => setReportOpen(false)}><CloseIcon /></IconButton>
+          </Box>
         </DialogTitle>
         <DialogContent dividers>
           <Table size="small" stickyHeader>
@@ -797,22 +813,27 @@ export default function RecommendationsPage() {
                 <TableCell sx={{ fontWeight: 600 }}>Rank</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Area</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Score</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Budget fit</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Reasoning</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Budget</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Customers</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Competition</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Advice</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {recommendations.map((loc) => {
                 const band = getScoreBand(loc.score);
+                const row = buildRankingRow(loc);
                 return (
                   <TableRow key={loc.id}>
-                    <TableCell>#{loc.rank}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>#{loc.rank}</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>{loc.name}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={`${loc.score} · ${band.label}`} sx={{ bgcolor: band.bg, color: band.color, fontWeight: 500 }} />
+                      <Chip size="small" label={`${loc.score}`} sx={{ bgcolor: band.bg, color: band.color, fontWeight: 500 }} />
                     </TableCell>
-                    <TableCell>{loc.metrics.budgetFit}%</TableCell>
-                    <TableCell sx={{ color: "text.secondary", fontSize: "0.8125rem" }}>{loc.reasoning}</TableCell>
+                    <TableCell sx={{ fontSize: "0.8125rem" }}>{row.budget}</TableCell>
+                    <TableCell sx={{ fontSize: "0.8125rem" }}>{row.customers}</TableCell>
+                    <TableCell sx={{ fontSize: "0.8125rem" }}>{row.competition}</TableCell>
+                    <TableCell sx={{ color: "text.secondary", fontSize: "0.8125rem", maxWidth: 320 }}>{row.advice}</TableCell>
                   </TableRow>
                 );
               })}
@@ -822,4 +843,217 @@ export default function RecommendationsPage() {
       </Dialog>
     </Box>
   );
+}
+
+// ===== Helpers used by the Full ranking dialog and its PDF export =====
+
+function _esc(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function _lkr(v) {
+  if (v == null || isNaN(Number(v))) return "—";
+  const n = Number(v);
+  if (n >= 1_000_000) return `LKR ${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1_000) return `LKR ${Math.round(n / 1_000)}k`;
+  return `LKR ${n.toLocaleString()}`;
+}
+
+// Single source of truth for the row labels so the on-screen table and the
+// printed PDF always show identical text.
+function buildRankingRow(loc) {
+  const m = loc.metrics || {};
+  const budget =
+    m.budgetFit >= 75 ? "Within budget" :
+    m.budgetFit >= 50 ? "Within with room" :
+                        "Below usual rent";
+  const customers =
+    m.footfall >= 70 ? "Strong walk-in flow" :
+    m.footfall >= 45 ? "Moderate walk-in" :
+                       "Low walk-in flow";
+  const competition =
+    m.lowCompetition >= 70 ? "Low" :
+    m.lowCompetition >= 45 ? "Moderate" :
+                             "High";
+  const advice = loc.reasoning
+    ? loc.reasoning.charAt(0).toUpperCase() + loc.reasoning.slice(1)
+    : "Open the card for full details.";
+  return { budget, customers, competition, advice };
+}
+
+// Render the per-area "explanation" block for the PDF. Skips any section the
+// API didn't populate so the PDF stays clean even when SHAP is unavailable.
+function _renderAreaDetail(loc) {
+  const row = buildRankingRow(loc);
+  const sections = [];
+
+  const headline = [];
+  headline.push(`<span><strong>Composite score:</strong> ${loc.score}/100</span>`);
+  if (loc.modelScore != null) headline.push(`<span><strong>Pure model:</strong> ${Number(loc.modelScore).toFixed(2)}</span>`);
+  if (loc.typicalRentLkr) headline.push(`<span><strong>Typical rent:</strong> ${_lkr(loc.typicalRentLkr)}/mo</span>`);
+  if (loc.typicalPurchaseLkr) headline.push(`<span><strong>Typical purchase:</strong> ${_lkr(loc.typicalPurchaseLkr)}</span>`);
+  sections.push(`<div class="head-row">${headline.join("<span class='dot'>·</span>")}</div>`);
+
+  sections.push(`
+    <div class="kv">
+      <div><span class="k">Budget:</span> ${_esc(row.budget)}</div>
+      <div><span class="k">Customers:</span> ${_esc(row.customers)}</div>
+      <div><span class="k">Competition:</span> ${_esc(row.competition)}</div>
+      <div><span class="k">Advice:</span> ${_esc(row.advice)}</div>
+    </div>`);
+
+  // SHAP top drivers — only renders if the FastAPI returned them
+  if (Array.isArray(loc.shapTopDrivers) && loc.shapTopDrivers.length > 0) {
+    const driverRows = loc.shapTopDrivers.map((d) => {
+      const sign = d.shap_value > 0 ? "+" : "";
+      const arrow = d.direction === "up" || d.shap_value > 0 ? "↑" : "↓";
+      return `<tr>
+        <td>${_esc(d.label || d.feature)}</td>
+        <td style="text-align:right;">${Number(d.feature_value).toFixed(2)}</td>
+        <td style="text-align:right;color:${d.shap_value > 0 ? "#0d9488" : "#dc2626"};">${arrow} ${sign}${Number(d.shap_value).toFixed(2)}</td>
+      </tr>`;
+    }).join("");
+    sections.push(`
+      <div class="block">
+        <div class="block-title">Why this score (SHAP top drivers)</div>
+        <table class="mini">
+          <thead><tr><th>Feature</th><th style="text-align:right;">Value</th><th style="text-align:right;">SHAP impact</th></tr></thead>
+          <tbody>${driverRows}</tbody>
+        </table>
+      </div>`);
+
+    if (loc.shapMath) {
+      const m = loc.shapMath;
+      sections.push(`
+        <div class="proof">
+          Math check: base ${Number(m.base_value).toFixed(3)} + Σshap ${Number(m.sum_shap).toFixed(3)} = model ${Number(m.model_output).toFixed(3)} (residual ${Number(m.residual).toExponential(1)})
+        </div>`);
+    }
+  }
+
+  // Tags
+  if (Array.isArray(loc.highlights) && loc.highlights.length) {
+    sections.push(`<div class="tags">${loc.highlights.map((t) => `<span class="tag">${_esc(t)}</span>`).join("")}</div>`);
+  }
+
+  // Notes (UDA/ReliefWeb/nPerf-sourced cautions per area)
+  if (Array.isArray(loc.notes) && loc.notes.length) {
+    sections.push(`<div class="block"><div class="block-title">Things to consider</div>${loc.notes.map((n) => `<div class="note"><strong>${_esc(n.title)}:</strong> ${_esc(n.note)}</div>`).join("")}</div>`);
+  }
+
+  return `
+    <section class="area">
+      <div class="area-head">
+        <div class="area-rank">#${loc.rank}</div>
+        <div class="area-name">${_esc(loc.name)}</div>
+      </div>
+      ${sections.join("\n")}
+    </section>`;
+}
+
+// Open a print-friendly window with the full ranking table AND a per-area
+// explanation block (SHAP drivers, math check, advisory) for each
+// recommendation. Triggers the browser's print dialog so the user can
+// "Save as PDF". No external library dependency.
+function exportRankingPdf(recommendations, businessLabel, data) {
+  const tableRows = recommendations.map((loc) => {
+    const r = buildRankingRow(loc);
+    return `
+      <tr>
+        <td style="font-weight:600;">#${loc.rank}</td>
+        <td style="font-weight:600;">${_esc(loc.name)}</td>
+        <td>${loc.score}</td>
+        <td>${_esc(r.budget)}</td>
+        <td>${_esc(r.customers)}</td>
+        <td>${_esc(r.competition)}</td>
+        <td style="color:#475569;">${_esc(r.advice)}</td>
+      </tr>`;
+  }).join("");
+
+  const detailBlocks = recommendations.map(_renderAreaDetail).join("\n");
+
+  const generatedAt = new Date().toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+  const peakMonths = data?.best_months ? data.best_months.join(", ") : "";
+  const worstMonths = data?.worst_months ? data.worst_months.join(", ") : "";
+  const overall = data?.overall_score != null ? `${data.overall_score}/100` : "";
+  const peakScore = data?.peak_score != null ? `${data.peak_score}/100` : "";
+  const lowScore = data?.low_season_score != null ? `${data.low_season_score}/100` : "";
+  const summary = `
+    <div class="summary">
+      <div><strong>Business:</strong> ${_esc(businessLabel) || "—"}</div>
+      ${overall ? `<div><strong>Overall score:</strong> ${overall}</div>` : ""}
+      ${peakScore ? `<div><strong>Peak season:</strong> ${peakScore}</div>` : ""}
+      ${lowScore ? `<div><strong>Low season:</strong> ${lowScore}</div>` : ""}
+      ${peakMonths ? `<div><strong>Best months:</strong> ${_esc(peakMonths)}</div>` : ""}
+      ${worstMonths ? `<div><strong>Worst months:</strong> ${_esc(worstMonths)}</div>` : ""}
+      <div><strong>Generated:</strong> ${generatedAt}</div>
+    </div>`;
+
+  const html = `<!doctype html>
+<html><head><meta charset="utf-8" />
+<title>SmartLoc — Full Ranking + Explanations</title>
+<style>
+  @page { size: A4; margin: 14mm; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; margin: 0; padding: 24px; line-height: 1.45; }
+  h1 { font-size: 22px; margin: 0 0 4px 0; letter-spacing: -0.02em; }
+  h2 { font-size: 15px; margin: 24px 0 8px 0; letter-spacing: -0.01em; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; }
+  .subtitle { color: #64748b; font-size: 12px; margin-bottom: 14px; }
+  .summary { font-size: 12px; color: #334155; margin-bottom: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; padding: 10px 14px; background: #f8fafc; border-left: 3px solid #0d9488; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  thead th { text-align: left; background: #f1f5f9; padding: 6px 8px; font-weight: 600; border-bottom: 2px solid #cbd5e1; }
+  tbody td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  .area { page-break-inside: avoid; margin-top: 18px; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 6px; }
+  .area-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .area-rank { font-size: 14px; font-weight: 700; color: #0d9488; }
+  .area-name { font-size: 14px; font-weight: 600; }
+  .head-row { font-size: 11px; color: #475569; margin-bottom: 8px; }
+  .head-row .dot { color: #cbd5e1; margin: 0 8px; }
+  .kv { font-size: 11px; color: #1e293b; margin: 6px 0; }
+  .kv > div { margin: 2px 0; }
+  .k { color: #64748b; font-weight: 600; margin-right: 4px; }
+  .block { margin-top: 8px; }
+  .block-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 4px; }
+  table.mini { font-size: 10.5px; }
+  table.mini th, table.mini td { padding: 4px 8px; }
+  .proof { font-size: 9.5px; color: #94a3b8; margin-top: 4px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .tags { margin-top: 8px; }
+  .tag { display: inline-block; padding: 2px 8px; margin: 0 4px 4px 0; font-size: 9.5px; border-radius: 999px; background: #f1f5f9; color: #475569; }
+  .note { font-size: 11px; color: #475569; margin: 4px 0; }
+  .footer { margin-top: 18px; font-size: 9.5px; color: #94a3b8; text-align: center; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+</style></head>
+<body>
+  <h1>SmartLoc · Full ranking + explanations</h1>
+  <div class="subtitle">Per-area XGBoost recommendation across the 12 Nuwara Eliya neighbourhoods, with the SHAP and advisory data behind each ranking.</div>
+  ${summary}
+
+  <h2>Summary</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Rank</th><th>Area</th><th>Model</th><th>Budget</th><th>Customers</th><th>Competition</th><th>Advice</th>
+      </tr>
+    </thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+
+  <h2>Per-area explanations</h2>
+  ${detailBlocks}
+
+  <div class="footer">Generated by SmartLoc · ${generatedAt}. Use your browser's Save as PDF option in the print dialog.</div>
+  <script>
+    window.onload = function () {
+      setTimeout(function () { window.print(); }, 350);
+    };
+  </script>
+</body></html>`;
+
+  const win = window.open("", "_blank", "width=1100,height=900");
+  if (!win) {
+    alert("Pop-up was blocked. Please allow pop-ups for this site to download the PDF.");
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
 }

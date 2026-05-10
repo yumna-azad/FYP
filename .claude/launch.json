@@ -8,16 +8,16 @@
       "port": 5173
     },
     {
-      "name": "smartloc-ml",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", "9191", "--app-dir", "backend/ml"],
-      "port": 9191
-    },
-    {
       "name": "smartloc-laravel",
       "runtimeExecutable": "php",
-      "runtimeArgs": ["-d", "memory_limit=512M", "backend/artisan", "serve", "--host=127.0.0.1", "--port=8000"],
+      "runtimeArgs": ["backend/artisan", "serve", "--host=127.0.0.1", "--port=8000"],
       "port": 8000
+    },
+    {
+      "name": "smartloc-ml",
+      "runtimeExecutable": "H:\\3rd year\\FYP\\mokup\\backend\\ml\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", "8001", "--app-dir", "backend/ml"],
+      "port": 8001
     }
   ]
 }

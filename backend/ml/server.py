@@ -16,6 +16,7 @@ from pathlib import Path
 
 import joblib
 import numpy as np
+import shap
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -50,6 +51,21 @@ class MonthlyScore(BaseModel):
     is_monsoon: bool
 
 
+class ShapDriver(BaseModel):
+    feature: str
+    label: str
+    shap_value: float
+    feature_value: float
+    direction: str  # "up" | "down"
+
+
+class ShapMath(BaseModel):
+    base_value: float
+    sum_shap: float
+    model_output: float
+    residual: float  # base + sum_shap - model_output, should be ~1e-6
+
+
 class AreaRecommendation(BaseModel):
     rank: int
     area: str
@@ -62,6 +78,11 @@ class AreaRecommendation(BaseModel):
     typical_rent_lkr: int
     typical_purchase_lkr: int
     budget_delta_pct: float  # positive = user's budget higher than area norm; negative = below
+    # Per-area SHAP explanations of the XGBoost model output.
+    # Empty arrays mean SHAP couldn't run for this area (still safe to render).
+    shap_top_drivers: list[ShapDriver] = Field(default_factory=list)
+    shap_math: ShapMath | None = None
+    model_score: float = 0.0  # raw XGBoost prediction for this area (pre-clip)
 
 
 class PredictResponse(BaseModel):
@@ -87,6 +108,7 @@ app.add_middleware(
 )
 
 _model = None
+_explainer = None
 
 
 def get_model():
@@ -96,6 +118,139 @@ def get_model():
             raise RuntimeError(f"Model not found at {MODEL_PATH}")
         _model = joblib.load(MODEL_PATH)
     return _model
+
+
+def get_explainer():
+    """Lazy-build a SHAP TreeExplainer over the loaded XGBoost model.
+
+    TreeExplainer is exact for tree ensembles, so for any input row X:
+        model.predict(X)  ==  expected_value + sum(shap_values)
+    The frontend re-checks this identity and prints the residual as proof.
+    """
+    global _explainer
+    if _explainer is None:
+        _explainer = shap.TreeExplainer(get_model())
+    return _explainer
+
+
+# Features that vary across the 12 areas (the rest are constant per business
+# type or per month). Top SHAP drivers are filtered to these so users see
+# what actually differentiates one area from another.
+AREA_VARYING_FEATURES = {
+    "competition_density",
+    "est_daily_visitors",
+    "review_log",
+    "review_popularity",
+    "is_above_median_rating",
+    "digital_presence",
+    "confidence_score",
+}
+
+# Plain-English labels for SHAP driver display.
+_HUMAN_LABELS = {
+    "competition_density": "Number of similar businesses nearby",
+    "est_daily_visitors": "Estimated daily walk-in visitors",
+    "review_log": "Online review activity",
+    "review_popularity": "Review popularity",
+    "is_above_median_rating": "Above-median rating area",
+    "digital_presence": "Online/digital presence",
+    "confidence_score": "Local market confidence",
+    "month": "Month",
+    "is_peak": "Peak tourist month",
+    "is_monsoon": "Monsoon month",
+    "off_peak_severity": "Off-season severity",
+    "avg_temp": "Average temperature",
+    "precip_mm": "Rainfall (mm)",
+    "humidity": "Humidity",
+    "rainy_days": "Rainy days",
+    "sun_hours": "Sun hours",
+    "avg_arrivals": "Average tourist arrivals",
+    "std_arrivals": "Tourist variability",
+    "events_count": "Number of events",
+    "event_impact": "Event impact",
+    "seasonality_index": "Seasonality index",
+    "rating": "Average rating",
+    "category_encoded": "Business category",
+    "rating_vs_type": "Rating vs category",
+}
+
+
+def _human_label(feature: str) -> str:
+    return _HUMAN_LABELS.get(feature, feature.replace("_", " ").title())
+
+
+def _area_feature_vector(business_features: dict, monthly_features: dict, area: dict) -> np.ndarray:
+    """Build a 24-dim feature vector specialised for ONE area.
+
+    Several features sensibly vary across neighbourhoods. We override them with
+    values derived from the area's footfall_weight + competition_weight so the
+    XGBoost model can distinguish areas. Without this, every area would
+    produce an identical prediction.
+    """
+    fw = float(area["footfall_weight"])      # 0..1, how busy walk-in traffic is
+    cw = float(area["competition_weight"])   # 0..1, how saturated with similar businesses
+
+    # Competition: 0..1 → 30..230 (matches training-data spread per category)
+    competition_for_area = 30.0 + cw * 200.0
+    visitors_for_area = float(monthly_features["est_daily_visitors"]) * (fw / 0.5)
+
+    rating_base = float(business_features.get("rating", 4.0))
+    review_log_base = float(business_features.get("review_log", 2.5))
+    review_pop_base = float(business_features.get("review_popularity", 0.5))
+
+    overrides = {
+        "competition_density": competition_for_area,
+        "est_daily_visitors": visitors_for_area,
+        "review_log": review_log_base * (0.6 + fw * 0.8),
+        "review_popularity": min(1.0, review_pop_base * (0.5 + fw)),
+        "is_above_median_rating": 1.0 if cw > 0.5 else 0.0,
+        "digital_presence": 1.0 if fw > 0.5 else 0.0,
+        "confidence_score": 1.0 + cw * 2.5,
+    }
+    combined = {**business_features, **monthly_features, **overrides}
+    row = [combined[k] for k in FEATURE_ORDER]
+    return np.asarray(row, dtype=np.float32).reshape(1, -1)
+
+
+def _shap_for_vector(X: np.ndarray) -> tuple[list[dict], dict]:
+    """Run SHAP TreeExplainer on a single 24-feature row.
+
+    Returns (top_drivers, math_check):
+        top_drivers: top 4 area-varying features by absolute SHAP impact.
+        math_check : {base_value, sum_shap, model_output, residual} as proof
+                     the SHAP values satisfy the additive identity.
+    """
+    explainer = get_explainer()
+    shap_values = explainer.shap_values(X)
+    if isinstance(shap_values, list):
+        shap_values = shap_values[0]
+    sv = np.asarray(shap_values).flatten()
+
+    base = float(np.asarray(explainer.expected_value).flatten()[0])
+    sum_shap = float(np.sum(sv))
+    model_output = float(get_model().predict(X)[0])
+    residual = round(base + sum_shap - model_output, 6)
+
+    drivers = []
+    for i, feat in enumerate(FEATURE_ORDER):
+        if feat not in AREA_VARYING_FEATURES:
+            continue
+        val = float(sv[i])
+        drivers.append({
+            "feature": feat,
+            "label": _human_label(feat),
+            "shap_value": val,
+            "feature_value": float(X[0][i]),
+            "direction": "up" if val >= 0 else "down",
+        })
+    drivers.sort(key=lambda d: abs(d["shap_value"]), reverse=True)
+
+    return drivers[:4], {
+        "base_value": base,
+        "sum_shap": sum_shap,
+        "model_output": model_output,
+        "residual": residual,
+    }
 
 
 # Rule-based adjustments (same 7 rules as in the training notebook):
@@ -130,8 +285,14 @@ def _score_business_across_months(business_type_key: str) -> list[dict]:
 
 
 def _rank_areas(business_type_key: str, land_intent: str, amount: float,
-                preferred_area: str | None, base_score: float) -> list[dict]:
-    """Composite score per area: ML base score + budget fit + footfall - competition."""
+                preferred_area: str | None, base_score: float,
+                business_features: dict, monthly_features: dict) -> list[dict]:
+    """Composite score per area: ML base score + budget fit + footfall - competition.
+
+    Also runs SHAP on a per-area feature vector and attaches the top drivers
+    plus a math-identity check to each area's response. SHAP failures are
+    swallowed so the ranking still works even if the explainer errors.
+    """
     ranked = []
     for area in NUWARA_ELIYA_AREAS:
         # Budget fit — closer to area's indicative price = higher score, 0..1
@@ -187,6 +348,20 @@ def _rank_areas(business_type_key: str, land_intent: str, amount: float,
             parts.append(f"few walk-in customers — you'd lean on marketing")
         reasoning = "; ".join(parts) + "."
 
+        # Run XGBoost + SHAP for THIS area using a per-area feature vector.
+        # Any failure here is logged-and-swallowed so the page still renders.
+        shap_top_drivers = []
+        shap_math = None
+        model_score = 0.0
+        try:
+            X_area = _area_feature_vector(business_features, monthly_features, area)
+            model_score = float(get_model().predict(X_area)[0])
+            drivers, math_check = _shap_for_vector(X_area)
+            shap_top_drivers = drivers
+            shap_math = math_check
+        except Exception:
+            pass  # SHAP missing or errored — leave fields empty, card still renders
+
         ranked.append({
             "area": area["name"],
             "score": score_100,
@@ -198,6 +373,9 @@ def _rank_areas(business_type_key: str, land_intent: str, amount: float,
             "budget_delta_pct": round(budget_delta, 1),
             "tags": area["tags"],
             "reasoning": reasoning,
+            "shap_top_drivers": shap_top_drivers,
+            "shap_math": shap_math,
+            "model_score": round(model_score, 4),
         })
 
     ranked.sort(key=lambda r: r["score"], reverse=True)
@@ -215,6 +393,29 @@ def health():
         return {"status": "ok", "model_loaded": True, "n_features": model.n_features_in_}
     except Exception as e:
         return {"status": "error", "model_loaded": False, "error": str(e)}
+
+
+@app.get("/api/ml/shap_health")
+def shap_health():
+    """Confirms SHAP is installed and the TreeExplainer is built.
+
+    Returns the explainer's expected_value (the model's mean prediction over
+    the training set) — a non-trivial value that proves SHAP is loaded, not
+    just imported.
+    """
+    try:
+        explainer = get_explainer()
+        base = float(np.asarray(explainer.expected_value).flatten()[0])
+        return {
+            "status": "ok",
+            "library": "shap",
+            "version": shap.__version__,
+            "explainer": "TreeExplainer",
+            "base_value": base,
+            "n_features": int(get_model().n_features_in_),
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
 
 
 @app.post("/api/ml/predict", response_model=PredictResponse)
@@ -237,8 +438,15 @@ def predict(req: PredictRequest) -> PredictResponse:
     best_months = [m["month"] for m in sorted_by_score[:3]]
     worst_months = [m["month"] for m in sorted_by_score[-3:]]
 
+    # Pick the best month's features as the representative monthly vector
+    # for per-area SHAP (a single vector per area; the model+SHAP happen there).
+    best_month_idx = int(sorted_by_score[0]["month"]) - 1
+    best_monthly_features = MONTHLY_FEATURES[best_month_idx]
+    business_medians = BUSINESS_MEDIANS[key]
+
     recs_raw = _rank_areas(
-        key, req.land_intent, req.amount, req.preferred_area, overall
+        key, req.land_intent, req.amount, req.preferred_area, overall,
+        business_medians, best_monthly_features,
     )
 
     return PredictResponse(

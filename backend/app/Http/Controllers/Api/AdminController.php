@@ -10,6 +10,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\LocationFinderSubmission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AdminController extends Controller
 {
@@ -30,11 +31,24 @@ class AdminController extends Controller
         $locationsLastMonth = Location::where('created_at', '>=', now()->subMonth())->count();
         $locationsChange = '+' . ($locationsLastMonth);
 
-        // Active sessions (mock - replace with actual session tracking)
-        $activeSessions = DB::table('sessions')
-            ->where('last_activity', '>=', now()->subMinutes(30)->timestamp)
-            ->count();
-        $sessionsLastMonth = 0; // Mock
+        // Active sessions. The `sessions` table only exists when Laravel is
+        // configured with the database session driver. We use Sanctum tokens,
+        // not Laravel sessions, so the table isn't present. Fall back to
+        // counting recent users by `last_active_at` and don't 500 the dashboard
+        // if either path fails.
+        $activeSessions = 0;
+        try {
+            if (Schema::hasTable('sessions')) {
+                $activeSessions = DB::table('sessions')
+                    ->where('last_activity', '>=', now()->subMinutes(30)->timestamp)
+                    ->count();
+            } else {
+                $activeSessions = User::where('last_active_at', '>=', now()->subMinutes(30))->count();
+            }
+        } catch (\Throwable $e) {
+            $activeSessions = 0;
+        }
+        $sessionsLastMonth = 0;
         $sessionsChange = $activeSessions > 0 ? '+' . round(($activeSessions / max($activeSessions - $sessionsLastMonth, 1)) * 100) . '%' : '+0%';
 
         return response()->json([

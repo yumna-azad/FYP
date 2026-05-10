@@ -26,11 +26,17 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'last_active_at' => 'datetime',
         'password' => 'hashed',
     ];
 
     public function submissions()
     {
         return $this->hasMany(LocationFinderSubmission::class);
+    }
+
+    public function subscriptionPlan()
+    {
+        return $this->belongsTo(SubscriptionPlan::class);
     }
 }
