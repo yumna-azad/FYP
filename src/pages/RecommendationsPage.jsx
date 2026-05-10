@@ -234,8 +234,24 @@ export default function RecommendationsPage() {
   const visible = showAll ? recommendations : recommendations.slice(0, 3);
   const businessLabel = (data?.business_type || "").replace(/_/g, " ");
   const firstBestMonth = data?.best_months?.[0];
-  const bestArea = recommendations[0]?.name;
-  const topStrength = recommendations[0] ? describeTopStrength(recommendations[0]) : "balanced fit";
+  // "Best overall" must always come from the MODEL (uses all 24 features),
+  // not from recommendations[0] which may be the pinned preferred area.
+  // We find the area with model_rank === 1; falls back to recommendations[0]
+  // only when model_rank isn't populated (older API responses).
+  const bestByModel = useMemo(
+    () =>
+      recommendations.find((r) => r.modelRank === 1) ||
+      recommendations[0] ||
+      null,
+    [recommendations]
+  );
+  const preferredPinnedArea = useMemo(
+    () => recommendations.find((r) => r.isPreferredPin),
+    [recommendations]
+  );
+  const bestArea = bestByModel?.name;
+  const bestAreaScore = bestByModel?.score;
+  const topStrength = bestByModel ? describeTopStrength(bestByModel) : "balanced fit";
 
   const mapLocations = recommendations.map((r) => {
     const band = getScoreBand(r.score);
@@ -351,12 +367,20 @@ export default function RecommendationsPage() {
           Based on your inputs, we ranked {recommendations.length} areas on budget, walk-in customers, competition and seasonal demand.
         </Typography>
 
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2, mt: 3 }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: preferredPinnedArea ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }, gap: 2, mt: 3 }}>
           {[
-            { label: "Best overall area", value: bestArea, sub: `#1 match · ${recommendations[0]?.score}/100` },
+            // The model's #1 pick (uses all 24 features; ignores any pinning).
+            { label: "Best overall area", value: bestArea, sub: `Model's #1 pick · ${bestAreaScore}/100`, color: "#15803d" },
+            // Only shown when the user picked a preferred area different from the model's choice.
+            preferredPinnedArea && {
+              label: "Your preferred choice",
+              value: preferredPinnedArea.name,
+              sub: `Pinned to #1 · model rank #${preferredPinnedArea.modelRank}`,
+              color: "#b45309",
+            },
             { label: "Best month to open", value: firstBestMonth ? MONTH_LONG[firstBestMonth - 1] : "—", sub: `All peaks: ${data.best_months.map((m) => MONTH_SHORT[m - 1]).join(", ")}` },
             { label: "Top strength", value: topStrength.charAt(0).toUpperCase() + topStrength.slice(1), sub: `Strongest driver for ${bestArea}` },
-          ].map((c, i) => (
+          ].filter(Boolean).map((c, i) => (
             <motion.div key={c.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 + i * 0.08, ease }}>
               <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: "100%" }}>
                 <Typography sx={{ fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", color: "text.secondary", fontWeight: 500 }}>
