@@ -400,6 +400,21 @@ export default function RecommendationsPage() {
         </Box>
       </motion.div>
 
+      {/* ────────── 1.5. Live commercial listings — page-level ────────── */}
+      {/* Shown ONCE at the page level (not per area) because ikman.lk lists by
+          city, not neighbourhood — so the same Nuwara Eliya listings would
+          appear identically on every area card if we placed this per-area. */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.2, ease }}>
+        <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
+          <LiveListings
+            area="Nuwara Eliya"
+            intent={(() => { try { return JSON.parse(sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY) || "{}").landIntent || "rent"; } catch { return "rent"; } })()}
+            budget={(() => { try { return Number(JSON.parse(sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY) || "{}").amount || 0); } catch { return 0; } })()}
+            businessType={data?.business_type || ""}
+          />
+        </Paper>
+      </motion.div>
+
       {/* ────────── 2. Ranked list (left) + Map (right) ────────── */}
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 3, alignItems: "start" }}>
         {/* Ranked list */}
@@ -734,15 +749,6 @@ export default function RecommendationsPage() {
               </Box>
             )}
 
-            {/* Live property listings scraped from ikman.lk */}
-            <Box sx={{ mt: 4 }}>
-              <LiveListings
-                area={selectedLocation.name}
-                intent={(() => { try { return JSON.parse(sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY) || "{}").landIntent || "rent"; } catch { return "rent"; } })()}
-                budget={(() => { try { return Number(JSON.parse(sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY) || "{}").amount || 0); } catch { return 0; } })()}
-                businessType={data?.business_type || ""}
-              />
-            </Box>
 
             {/* Find available properties - real-world resources for this area */}
             <Box sx={{ mt: 4 }}>
@@ -1043,7 +1049,7 @@ function LiveListings({ area, intent, budget, businessType }) {
     <Box>
       <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1 }}>
         <Typography sx={{ fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", color: "text.secondary", fontWeight: 500 }}>
-          Properties available now
+          Live commercial properties in Nuwara Eliya
         </Typography>
         {state.payload?.live && (
           <Chip size="small" label="Live · ikman.lk" sx={{ height: 18, fontSize: 9.5, bgcolor: "rgba(13,148,136,0.12)", color: "primary.main", fontWeight: 500 }} />
@@ -1070,9 +1076,7 @@ function LiveListings({ area, intent, budget, businessType }) {
       </Stack>
 
       <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mb: 2 }}>
-        {state.payload?.broadened
-          ? `No listings name "${area}" specifically — showing Nuwara Eliya listings instead. `
-          : `Live listings from ikman.lk for ${area}. `}
+        ikman.lk lists commercial properties at the city level, not by individual neighbourhood — so these listings apply to every recommended area below. {" "}
         {state.payload?.user_budget_lkr && state.payload?.budget_filter === "tight" && (
           <>Filtered to within ±50% of your LKR {state.payload.user_budget_lkr.toLocaleString()} {intent === "purchase" ? "purchase" : "rent"} budget. </>
         )}
@@ -1082,7 +1086,7 @@ function LiveListings({ area, intent, budget, businessType }) {
         {state.payload?.user_budget_lkr && state.payload?.budget_filter === "none" && (
           <>No listings matched your LKR {state.payload.user_budget_lkr.toLocaleString()} budget — showing all available. </>
         )}
-        Cached one hour server-side. Click any card to open the original ad.
+        For area-specific data, click "See your competition" on each recommendation card.
       </Typography>
 
       {state.loading && (
