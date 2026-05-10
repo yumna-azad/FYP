@@ -1040,15 +1040,35 @@ function LiveListings({ area, intent, budget, businessType }) {
           <Chip size="small" label="Live · ikman.lk" sx={{ height: 18, fontSize: 9.5, bgcolor: "rgba(13,148,136,0.12)", color: "primary.main", fontWeight: 500 }} />
         )}
       </Stack>
+      {/* Filter chips — make the alignment between user input and filter visible */}
+      <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", rowGap: 0.5, mb: 1.5 }}>
+        <Chip size="small" label={intent === "purchase" ? "For sale" : "For rent"} variant="outlined" sx={{ height: 22, fontSize: 11 }} />
+        {businessType && (
+          <Chip size="small" label={`Bias: ${businessType.replace(/_/g, " ")}`} variant="outlined" sx={{ height: 22, fontSize: 11 }} />
+        )}
+        {Number(budget) > 0 && (
+          <Chip size="small" label={`Budget: LKR ${Number(budget).toLocaleString()}`} variant="outlined" sx={{ height: 22, fontSize: 11 }} />
+        )}
+        {state.payload?.budget_filter === "tight" && (
+          <Chip size="small" label="±50% match" sx={{ height: 22, fontSize: 11, bgcolor: "rgba(21,128,61,0.10)", color: "#15803d" }} />
+        )}
+        {state.payload?.budget_filter === "wide" && (
+          <Chip size="small" label="Wider range" sx={{ height: 22, fontSize: 11, bgcolor: "rgba(245,158,11,0.12)", color: "#b45309" }} />
+        )}
+        {state.payload?.budget_filter === "none" && Number(budget) > 0 && (
+          <Chip size="small" label="No budget match" sx={{ height: 22, fontSize: 11, bgcolor: "rgba(185,28,28,0.10)", color: "#b91c1c" }} />
+        )}
+      </Stack>
+
       <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mb: 2 }}>
         {state.payload?.broadened
           ? `No listings name "${area}" specifically — showing Nuwara Eliya listings instead. `
           : `Live listings from ikman.lk for ${area}. `}
         {state.payload?.user_budget_lkr && state.payload?.budget_filter === "tight" && (
-          <>Filtered to within ±50% of your LKR {state.payload.user_budget_lkr.toLocaleString()} budget. </>
+          <>Filtered to within ±50% of your LKR {state.payload.user_budget_lkr.toLocaleString()} {intent === "purchase" ? "purchase" : "rent"} budget. </>
         )}
         {state.payload?.user_budget_lkr && state.payload?.budget_filter === "wide" && (
-          <>Showing a wider range (no exact matches at LKR {state.payload.user_budget_lkr.toLocaleString()}). </>
+          <>Showing a wider range (no exact matches at LKR {state.payload.user_budget_lkr.toLocaleString()} for {intent === "purchase" ? "purchase" : "rent"}). </>
         )}
         {state.payload?.user_budget_lkr && state.payload?.budget_filter === "none" && (
           <>No listings matched your LKR {state.payload.user_budget_lkr.toLocaleString()} budget — showing all available. </>
