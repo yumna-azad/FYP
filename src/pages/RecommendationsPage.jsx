@@ -734,6 +734,14 @@ export default function RecommendationsPage() {
               </Box>
             )}
 
+            {/* Live property listings scraped from ikman.lk */}
+            <Box sx={{ mt: 4 }}>
+              <LiveListings
+                area={selectedLocation.name}
+                intent={(() => { try { return JSON.parse(sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY) || "{}").landIntent || "rent"; } catch { return "rent"; } })()}
+              />
+            </Box>
+
             {/* Find available properties - real-world resources for this area */}
             <Box sx={{ mt: 4 }}>
               <Typography sx={{ fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", color: "text.secondary", fontWeight: 500, mb: 1 }}>
@@ -994,6 +1002,127 @@ function propertyResources(areaName, businessType, landIntent) {
       url: `https://www.google.com/maps/search/${enc(cleanArea + ", Nuwara Eliya, Sri Lanka")}`,
     },
   ];
+}
+
+// Lazy fetch + render of live property listings scraped from ikman.lk via
+// our Laravel /api/listings endpoint (server-side cache, 1h TTL). Renders
+// a loading skeleton, an empty/error state, and a grid of cards with image,
+// title, price, and a link out to the original ad on ikman.lk.
+function LiveListings({ area, intent }) {
+  const [state, setState] = React.useState({ loading: true, payload: null, error: null });
+  const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setState({ loading: true, payload: null, error: null });
+    fetch(`${apiBase}/api/listings?area=${encodeURIComponent(area)}&intent=${encodeURIComponent(intent)}`)
+      .then((r) => r.json())
+      .then((j) => { if (!cancelled) setState({ loading: false, payload: j, error: null }); })
+      .catch((e) => { if (!cancelled) setState({ loading: false, payload: null, error: e.message }); });
+    return () => { cancelled = true; };
+  }, [area, intent, apiBase]);
+
+  return (
+    <Box>
+      <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1 }}>
+        <Typography sx={{ fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", color: "text.secondary", fontWeight: 500 }}>
+          Properties available now
+        </Typography>
+        {state.payload?.live && (
+          <Chip size="small" label="Live · ikman.lk" sx={{ height: 18, fontSize: 9.5, bgcolor: "rgba(13,148,136,0.12)", color: "primary.main", fontWeight: 500 }} />
+        )}
+      </Stack>
+      <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mb: 2 }}>
+        {state.payload?.broadened
+          ? `No listings found that name "${area}" specifically — showing Nuwara Eliya listings instead. `
+          : `Real listings scraped live from ikman.lk for ${area}. `}
+        Cached one hour server-side. Click any card to open the original ad on ikman.lk.
+      </Typography>
+
+      {state.loading && (
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 1.5 }}>
+          {[0, 1, 2].map((i) => (
+            <Paper key={i} variant="outlined" sx={{ p: 1.5, borderRadius: 2, height: 96, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <CircularProgress size={18} />
+            </Paper>
+          ))}
+        </Box>
+      )}
+
+      {!state.loading && (!state.payload?.listings || state.payload.listings.length === 0) && (
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "rgba(0,0,0,0.02)" }}>
+          <Typography variant="body2" color="text.secondary">
+            No live listings found for this area right now.{" "}
+            {state.payload?.search_url && (
+              <Box component="a" href={state.payload.search_url} target="_blank" rel="noopener noreferrer" sx={{ color: "primary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>
+                Browse all on ikman.lk →
+              </Box>
+            )}
+          </Typography>
+        </Paper>
+      )}
+
+      {!state.loading && state.payload?.listings?.length > 0 && (
+        <>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 1.5 }}>
+            {state.payload.listings.map((L, i) => (
+              <Paper
+                key={`${L.url}-${i}`}
+                variant="outlined"
+                component="a"
+                href={L.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  borderRadius: 2,
+                  textDecoration: "none",
+                  color: "inherit",
+                  overflow: "hidden",
+                  display: "flex",
+                  flexDirection: "column",
+                  transition: "border-color 0.2s, transform 0.15s",
+                  "&:hover": { borderColor: "primary.main", transform: "translateY(-1px)" },
+                }}
+              >
+                {L.image ? (
+                  <Box
+                    component="img"
+                    src={L.image}
+                    alt={L.title}
+                    loading="lazy"
+                    sx={{ width: "100%", height: 110, objectFit: "cover", bgcolor: "rgba(0,0,0,0.04)" }}
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  />
+                ) : (
+                  <Box sx={{ width: "100%", height: 110, bgcolor: "rgba(0,0,0,0.04)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <HomeWorkOutlinedIcon sx={{ fontSize: 32, color: "text.secondary", opacity: 0.4 }} />
+                  </Box>
+                )}
+                <Box sx={{ p: 1.25, flex: 1, display: "flex", flexDirection: "column", gap: 0.5 }}>
+                  <Typography variant="body2" fontWeight={600} sx={{ overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.35 }}>
+                    {L.title}
+                  </Typography>
+                  {L.price && (
+                    <Typography variant="caption" sx={{ color: "primary.main", fontWeight: 700 }}>
+                      {L.price}
+                    </Typography>
+                  )}
+                </Box>
+              </Paper>
+            ))}
+          </Box>
+          {state.payload.search_url && (
+            <Typography variant="caption" sx={{ display: "block", mt: 1.5, color: "text.secondary" }}>
+              Showing {state.payload.listings.length} of {state.payload.count || state.payload.listings.length}. {" "}
+              <Box component="a" href={state.payload.search_url} target="_blank" rel="noopener noreferrer" sx={{ color: "primary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>
+                See all on ikman.lk →
+              </Box>
+            </Typography>
+          )}
+        </>
+      )}
+    </Box>
+  );
 }
 
 function _esc(s) {

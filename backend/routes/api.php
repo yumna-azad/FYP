@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\SocialMediaController;
 use App\Http\Controllers\Api\SubmissionController;
+use App\Http\Controllers\Api\ListingsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -25,6 +26,11 @@ Route::middleware(['auth:sanctum'])->post('/submissions', [SubmissionController:
 
 // Public social media links
 Route::get('/social-media', [SocialMediaController::class, 'getSocialMedia']);
+
+// Public live property listings — scraped from ikman.lk, cached 1h server-side.
+// Anyone can hit it (no auth) so the recommendation page can show real listings
+// for each Nuwara Eliya area on demand.
+Route::get('/listings', [ListingsController::class, 'index']);
 
 // Admin: Update social media links
 Route::middleware(['auth:sanctum', 'admin'])->put('/admin/social-media', [SocialMediaController::class, 'updateSocialMedia']);
