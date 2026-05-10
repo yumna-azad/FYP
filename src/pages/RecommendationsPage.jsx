@@ -974,6 +974,8 @@ function propertyResources(areaName, businessType, landIntent) {
   const intent = landIntent === "purchase" ? "for sale" : "for rent";
   const cleanArea = String(areaName || "").replace(/[^\w\s]/g, " ").trim();
   const niceType = String(businessType || "").replace(/_/g, " ");
+  // Plural for the competition map ("cafes", "hotels", "restaurants", "retail shops", "wellness centers")
+  const competitionPlural = niceType ? (niceType.endsWith("s") ? niceType : `${niceType}s`) : "businesses";
   const baseQ = `${cleanArea} Nuwara Eliya commercial ${intent}`;
   const enc = encodeURIComponent;
 
@@ -999,9 +1001,16 @@ function propertyResources(areaName, businessType, landIntent) {
       url: `https://www.google.com/search?q=${enc(`${cleanArea} Nuwara Eliya ${niceType} ${intent}`)}`,
     },
     {
-      name: "Google Maps",
-      sub: "See the area on the map",
+      name: "See the area",
+      sub: "Map view of the neighbourhood",
       url: `https://www.google.com/maps/search/${enc(cleanArea + ", Nuwara Eliya, Sri Lanka")}`,
+    },
+    {
+      // Pre-filtered to your business type — Google highlights existing
+      // competitors as red pins so you see who you'd be up against.
+      name: "See your competition",
+      sub: `${competitionPlural} near ${cleanArea}`,
+      url: `https://www.google.com/maps/search/${enc(`${competitionPlural} near ${cleanArea}, Nuwara Eliya, Sri Lanka`)}`,
     },
   ];
 }
