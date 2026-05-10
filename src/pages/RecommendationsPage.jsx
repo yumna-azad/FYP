@@ -1094,18 +1094,16 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
         const minP = state.payload?.area_min_price_lkr;
         const maxP = state.payload?.area_max_price_lkr;
         const userBudgetLkr = state.payload?.user_budget_lkr;
-        const budgetFilter = state.payload?.budget_filter;
-        // GREEN only when listings were ACTUALLY budget-matched (not the
-        // 'none' fallback tier which dumps everything regardless of budget)
-        const trulyMatched =
-          state.payload?.area_match === true &&
-          count > 0 &&
-          (budgetFilter === "tight" || budgetFilter === "wide" || !userBudgetLkr);
+        const breakdown = state.payload?.area_budget_breakdown || { within: 0, above: 0, below: 0, unknown: 0 };
         const intentLabel = intent === "purchase" ? "for sale" : "for rent";
         const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(`commercial property ${intentLabel} ${area}, Nuwara Eliya, Sri Lanka`)}`;
         const browseUrl = state.payload?.search_url || "https://ikman.lk/en/ads/sri-lanka/commercial-property-rentals";
 
-        if (trulyMatched) {
+        // GREEN: at least one listing within budget
+        // AMBER: area listings exist, none within budget
+        // RED  : no listings mention this area at all
+
+        if (state.payload?.area_match === true && breakdown.within > 0) {
           // GREEN
           return (
             <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: "rgba(21,128,61,0.06)", borderColor: "rgba(21,128,61,0.35)" }}>
@@ -1113,10 +1111,13 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
                 <Box sx={{ width: 30, height: 30, borderRadius: "50%", bgcolor: "rgba(21,128,61,0.15)", color: "#15803d", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 700 }}>✓</Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body2" fontWeight={600} sx={{ color: "#15803d" }}>
-                    {count} commercial {count === 1 ? "property" : "properties"} {intentLabel} mentioning {area}
+                    {breakdown.within} {breakdown.within === 1 ? "listing" : "listings"} in {area} within your budget
+                    {(breakdown.above + breakdown.below) > 0 && (
+                      <> · {breakdown.above > 0 ? `${breakdown.above} above` : ""}{breakdown.above > 0 && breakdown.below > 0 ? `, ` : ""}{breakdown.below > 0 ? `${breakdown.below} below` : ""}</>
+                    )}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Live from ikman.lk · within your budget filter
+                    Live from ikman.lk{minP && maxP ? ` · prices ${fmtLkr(minP)}–${fmtLkr(maxP)}` : ""}
                   </Typography>
                 </Box>
                 <Button size="small" variant="outlined" endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />} href={mapsUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: "none", borderRadius: 999 }}>
@@ -1128,8 +1129,7 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
         }
 
         if (totalAnyBudget > 0) {
-          // AMBER — listings exist for this area but none truly within budget
-          const aboveBudget = minP && userBudgetLkr && minP > userBudgetLkr;
+          // AMBER — listings exist for this area but none within budget
           const priceRange = (minP && maxP)
             ? (minP === maxP ? `at ${fmtLkr(minP)}` : `from ${fmtLkr(minP)} to ${fmtLkr(maxP)}`)
             : "";
@@ -1139,11 +1139,13 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
                 <Box sx={{ width: 30, height: 30, borderRadius: "50%", bgcolor: "rgba(245,158,11,0.15)", color: "#b45309", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 700 }}>!</Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body2" fontWeight={600} sx={{ color: "#b45309" }}>
-                    {totalAnyBudget} listing{totalAnyBudget === 1 ? "" : "s"} mention {area} — {aboveBudget ? "above your budget" : "outside your budget"}
+                    {totalAnyBudget} {totalAnyBudget === 1 ? "listing" : "listings"} in {area} — none within your budget
+                    {breakdown.above > 0 && breakdown.below === 0 ? " (all above)" : ""}
+                    {breakdown.below > 0 && breakdown.above === 0 ? " (all below)" : ""}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {priceRange ? `Available ${priceRange}` : "Prices not parseable"}
-                    {userBudgetLkr ? ` · your filter: ${fmtLkr(userBudgetLkr)}` : ""} · You may need to expand your budget for this area.
+                    {userBudgetLkr ? ` · your filter: ${fmtLkr(userBudgetLkr)}` : ""}. Listings are still shown below — open any to inspect.
                   </Typography>
                 </Box>
                 <Button size="small" variant="outlined" endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />} href={mapsUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: "none", borderRadius: 999 }}>
@@ -1261,11 +1263,22 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
                   <Typography variant="body2" fontWeight={600} sx={{ overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.35 }}>
                     {L.title}
                   </Typography>
-                  {L.price && (
-                    <Typography variant="caption" sx={{ color: "primary.main", fontWeight: 700 }}>
-                      {L.price}
-                    </Typography>
-                  )}
+                  <Stack direction="row" alignItems="center" spacing={0.75} sx={{ flexWrap: "wrap", rowGap: 0.5 }}>
+                    {L.price && (
+                      <Typography variant="caption" sx={{ color: "primary.main", fontWeight: 700 }}>
+                        {L.price}
+                      </Typography>
+                    )}
+                    {L.budget_status === "within" && (
+                      <Chip size="small" label="Within budget" sx={{ height: 17, fontSize: 9, fontWeight: 600, bgcolor: "rgba(21,128,61,0.10)", color: "#15803d" }} />
+                    )}
+                    {L.budget_status === "above" && (
+                      <Chip size="small" label="Above budget" sx={{ height: 17, fontSize: 9, fontWeight: 600, bgcolor: "rgba(245,158,11,0.12)", color: "#b45309" }} />
+                    )}
+                    {L.budget_status === "below" && (
+                      <Chip size="small" label="Below budget" sx={{ height: 17, fontSize: 9, fontWeight: 600, bgcolor: "rgba(99,102,241,0.10)", color: "#4f46e5" }} />
+                    )}
+                  </Stack>
                 </Box>
               </Paper>
             ))}

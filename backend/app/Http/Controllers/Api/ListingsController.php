@@ -36,45 +36,81 @@ class ListingsController extends Controller
         $payload = Cache::remember($cacheKey, 3600, function () use ($area, $intent, $budget, $businessType, $areaSpecific) {
             $result = $this->fetchFromIkman($area, $intent, $budget, $businessType);
 
-            // Tri-state availability detection for the per-card banner.
-            //   GREEN  : area-specific listings WITHIN budget exist
-            //   AMBER  : area-specific listings exist but ALL above budget
-            //   RED    : no listings whose title mentions this area at all
+            // Per-card listings: filter by area-in-title ONLY (drop the budget
+            // filter). Tag each listing with budget status so the UI can
+            // colour/sort within-budget first, then above-budget, then below.
+            //
+            //   area_match=true  : at least one listing's title mentions the area
+            //   area_match=false : no listings mention this area at all (RED)
             if ($areaSpecific) {
                 $fullPool = $result['_full_pool'] ?? [];
                 $allInArea = $this->filterByAreaInTitle($fullPool, $area);
                 $result['area_total_any_budget'] = count($allInArea);
+
                 if (count($allInArea) > 0) {
-                    $prices = array_filter(array_map(fn($L) => $this->parsePriceLkr($L['price'] ?? null), $allInArea));
+                    // Tag each listing with budget status. The "below" tier
+                    // is reserved for listings <30% of budget (often too small
+                    // or in a different category). Anything between 30% and
+                    // 100% of budget is "within" (affordable). Above 100% is
+                    // "above" (out of reach).
+                    $tagged = array_map(function ($L) use ($budget) {
+                        $price = $this->parsePriceLkr($L['price'] ?? null);
+                        $L['price_lkr'] = $price;
+                        if ($budget > 0 && $price !== null) {
+                            if ($price <= $budget && $price >= $budget * 0.3) {
+                                $L['budget_status'] = 'within';
+                            } elseif ($price > $budget) {
+                                $L['budget_status'] = 'above';
+                            } else {
+                                $L['budget_status'] = 'below';
+                            }
+                        } else {
+                            $L['budget_status'] = 'unknown';
+                        }
+                        return $L;
+                    }, $allInArea);
+
+                    // Sort: within-budget first, then above, then below, then unknown.
+                    usort($tagged, function ($a, $b) {
+                        $order = ['within' => 0, 'above' => 1, 'below' => 2, 'unknown' => 3];
+                        $oa = $order[$a['budget_status']] ?? 3;
+                        $ob = $order[$b['budget_status']] ?? 3;
+                        return $oa <=> $ob;
+                    });
+
+                    // Per-status counts for the banner.
+                    $counts = ['within' => 0, 'above' => 0, 'below' => 0, 'unknown' => 0];
+                    foreach ($tagged as $L) {
+                        $counts[$L['budget_status']]++;
+                    }
+                    $result['area_budget_breakdown'] = $counts;
+
+                    // Price range across area-matched listings (for the banner).
+                    $prices = array_filter(array_map(fn($L) => $L['price_lkr'] ?? null, $tagged));
                     if (count($prices) > 0) {
                         $result['area_min_price_lkr'] = min($prices);
                         $result['area_max_price_lkr'] = max($prices);
                     }
-                }
 
-                // Filter the (already budget-filtered) listings by area-in-title.
-                if (!empty($result['listings']) && ($result['broadened'] ?? false)) {
-                    $filtered = $this->filterByAreaInTitle($result['listings'], $area);
-                    $result['area_filtered_count'] = count($filtered);
-                    if (count($filtered) > 0) {
-                        $result['listings'] = $filtered;
-                        $result['count'] = count($filtered);
-                        $result['area_match'] = true;
-                    } else {
-                        $result['listings'] = [];
-                        $result['count'] = 0;
-                        $result['area_match'] = false;
-                    }
+                    $result['listings'] = array_slice($tagged, 0, 6);
+                    $result['count'] = count($tagged);
+                    $result['area_match'] = true;
+                    // Override the budget_filter signal — for area-specific
+                    // results we now show everything that matches the area.
+                    $result['budget_filter'] = 'area_only';
+                } else {
+                    $result['listings'] = [];
+                    $result['count'] = 0;
+                    $result['area_match'] = false;
                 }
 
                 // Always also surface a broader Nuwara Eliya commercial pool
                 // (no area filter, no budget filter) so even a RED card shows
                 // the user that properties for their business type DO exist
                 // somewhere in the city. Capped at 6 for display.
-                $broaderPool = $fullPool ?? [];
-                $broaderPool = array_slice($broaderPool, 0, 6);
+                $broaderPool = array_slice($fullPool, 0, 6);
                 $result['broader_pool'] = $broaderPool;
-                $result['broader_pool_total'] = count($fullPool ?? []);
+                $result['broader_pool_total'] = count($fullPool);
             }
             // Strip the internal _full_pool before returning to the client.
             unset($result['_full_pool']);
