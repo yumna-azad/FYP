@@ -70,8 +70,17 @@ class ListingsController extends Controller
                         return $L;
                     }, $allInArea);
 
-                    // Sort: within-budget first, then above, then below, then unknown.
+                    // Sort: specific-match first, then within-budget, then
+                    // above, then below, then unknown.
                     usort($tagged, function ($a, $b) {
+                        // Specific area mention beats generic NE mention
+                        $matchScore = function ($x) {
+                            return ($x['match_type'] ?? 'generic') === 'specific' ? 0 : 1;
+                        };
+                        $ma = $matchScore($a);
+                        $mb = $matchScore($b);
+                        if ($ma !== $mb) return $ma <=> $mb;
+                        // Within budget rank
                         $order = ['within' => 0, 'above' => 1, 'below' => 2, 'unknown' => 3];
                         $oa = $order[$a['budget_status']] ?? 3;
                         $ob = $order[$b['budget_status']] ?? 3;
@@ -80,10 +89,13 @@ class ListingsController extends Controller
 
                     // Per-status counts for the banner.
                     $counts = ['within' => 0, 'above' => 0, 'below' => 0, 'unknown' => 0];
+                    $matchCounts = ['specific' => 0, 'generic' => 0];
                     foreach ($tagged as $L) {
                         $counts[$L['budget_status']]++;
+                        $matchCounts[$L['match_type'] ?? 'generic']++;
                     }
                     $result['area_budget_breakdown'] = $counts;
+                    $result['area_match_breakdown'] = $matchCounts;
 
                     // Price range across area-matched listings (for the banner).
                     $prices = array_filter(array_map(fn($L) => $L['price_lkr'] ?? null, $tagged));
@@ -189,17 +201,54 @@ class ListingsController extends Controller
         $aliases = $this->areaAliases($area);
         if (empty($aliases)) return $listings;
 
-        $matches = [];
+        // Build the "other areas" keyword set so we can exclude listings
+        // that explicitly belong to a DIFFERENT NE neighbourhood.
+        $allOtherAreaKeywords = ['town centre', 'town center', 'main street',
+            'gregory', 'lake gregory', 'lake front', 'lakefront',
+            'hakgala', 'pedro', 'hill club', 'nanu oya', 'nanuoya',
+            'ambewela', 'kandapola', 'glencairn', 'hawa eliya', 'hawaeliya',
+            'lover', 'lovers leap', 'leap', 'seetha', 'sita eliya',
+            'sitha eliya', 'tea estate'];
+        $otherKeywords = array_values(array_diff($allOtherAreaKeywords, $aliases));
+
+        $results = [];
         foreach ($listings as $L) {
             $title = strtolower($L['title'] ?? '');
+
+            // (1) Specific match: title mentions THIS area
+            $specific = false;
             foreach ($aliases as $alias) {
                 if ($alias && str_contains($title, $alias)) {
-                    $matches[] = $L;
+                    $specific = true;
                     break;
                 }
             }
+            if ($specific) {
+                $L['match_type'] = 'specific';
+                $results[] = $L;
+                continue;
+            }
+
+            // (2) Other-area match: title mentions a DIFFERENT NE area — skip
+            $otherArea = false;
+            foreach ($otherKeywords as $kw) {
+                if ($kw && str_contains($title, $kw)) {
+                    $otherArea = true;
+                    break;
+                }
+            }
+            if ($otherArea) {
+                continue;
+            }
+
+            // (3) Generic NE match: title mentions Nuwara Eliya but no specific
+            // area — could apply to any neighbourhood, including this one.
+            if (str_contains($title, 'nuwara eliya')) {
+                $L['match_type'] = 'generic';
+                $results[] = $L;
+            }
         }
-        return $matches;
+        return $results;
     }
 
     private function fetchFromIkman(string $area, string $intent, float $budget, string $businessType): array

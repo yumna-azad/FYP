@@ -1103,6 +1103,17 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
         // AMBER: area listings exist, none within budget
         // RED  : no listings mention this area at all
 
+        const matchBreakdown = state.payload?.area_match_breakdown || { specific: 0, generic: 0 };
+        const specificCount = matchBreakdown.specific || 0;
+        const genericCount = matchBreakdown.generic || 0;
+        const matchSummary = specificCount > 0 && genericCount > 0
+          ? `${specificCount} confirmed in ${area}, ${genericCount} general Nuwara Eliya`
+          : specificCount > 0
+            ? `${specificCount} confirmed in ${area}`
+            : genericCount > 0
+              ? `${genericCount} general Nuwara Eliya — exact area not specified`
+              : "";
+
         if (state.payload?.area_match === true && breakdown.within > 0) {
           // GREEN
           return (
@@ -1111,13 +1122,13 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
                 <Box sx={{ width: 30, height: 30, borderRadius: "50%", bgcolor: "rgba(21,128,61,0.15)", color: "#15803d", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 700 }}>✓</Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body2" fontWeight={600} sx={{ color: "#15803d" }}>
-                    {breakdown.within} {breakdown.within === 1 ? "listing" : "listings"} in {area} within your budget
+                    {breakdown.within} {breakdown.within === 1 ? "listing" : "listings"} within your budget
                     {(breakdown.above + breakdown.below) > 0 && (
                       <> · {breakdown.above > 0 ? `${breakdown.above} above` : ""}{breakdown.above > 0 && breakdown.below > 0 ? `, ` : ""}{breakdown.below > 0 ? `${breakdown.below} below` : ""}</>
                     )}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Live from ikman.lk{minP && maxP ? ` · prices ${fmtLkr(minP)}–${fmtLkr(maxP)}` : ""}
+                    {matchSummary}{minP && maxP ? ` · prices ${fmtLkr(minP)}–${fmtLkr(maxP)}` : ""}
                   </Typography>
                 </Box>
                 <Button size="small" variant="outlined" endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />} href={mapsUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: "none", borderRadius: 999 }}>
@@ -1277,6 +1288,12 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
                     )}
                     {L.budget_status === "below" && (
                       <Chip size="small" label="Below budget" sx={{ height: 17, fontSize: 9, fontWeight: 600, bgcolor: "rgba(99,102,241,0.10)", color: "#4f46e5" }} />
+                    )}
+                    {L.match_type === "specific" && (
+                      <Chip size="small" label={`In ${area}`} sx={{ height: 17, fontSize: 9, fontWeight: 600, bgcolor: "rgba(13,148,136,0.12)", color: "primary.main" }} />
+                    )}
+                    {L.match_type === "generic" && (
+                      <Chip size="small" label="General Nuwara Eliya" sx={{ height: 17, fontSize: 9, fontWeight: 500, bgcolor: "rgba(0,0,0,0.06)", color: "text.secondary" }} />
                     )}
                   </Stack>
                 </Box>
