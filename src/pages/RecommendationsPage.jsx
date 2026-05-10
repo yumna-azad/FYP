@@ -1075,17 +1075,38 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
         )}
       </Stack>
 
-      {/* PROMINENT availability banner — answers the question
-          "are there any commercial properties for this area?" at a glance.
-          Plus a "Show them on Google Maps" deep-link so the user can see
-          the listings on a real map. */}
+      {/* PROMINENT 3-state availability banner answers
+            "are there commercial properties for this area, and are they
+             within my budget?" at a glance.
+
+          GREEN  : >=1 listing in this area within budget
+          AMBER  : 0 within budget BUT >=1 listing exists in this area
+                   (gives the user the price range so they can decide)
+          RED    : 0 listings mention this area at all */}
       {!state.loading && areaSpecific && (() => {
+        const fmtLkr = (n) => {
+          if (n >= 1_000_000) return `Rs ${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+          if (n >= 1_000) return `Rs ${Math.round(n / 1_000)}k`;
+          return `Rs ${Number(n).toLocaleString()}`;
+        };
         const count = state.payload?.listings?.length ?? 0;
-        const hasMatches = state.payload?.area_match === true && count > 0;
+        const totalAnyBudget = Number(state.payload?.area_total_any_budget ?? 0);
+        const minP = state.payload?.area_min_price_lkr;
+        const maxP = state.payload?.area_max_price_lkr;
+        const userBudgetLkr = state.payload?.user_budget_lkr;
+        const budgetFilter = state.payload?.budget_filter;
+        // GREEN only when listings were ACTUALLY budget-matched (not the
+        // 'none' fallback tier which dumps everything regardless of budget)
+        const trulyMatched =
+          state.payload?.area_match === true &&
+          count > 0 &&
+          (budgetFilter === "tight" || budgetFilter === "wide" || !userBudgetLkr);
         const intentLabel = intent === "purchase" ? "for sale" : "for rent";
         const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(`commercial property ${intentLabel} ${area}, Nuwara Eliya, Sri Lanka`)}`;
         const browseUrl = state.payload?.search_url || "https://ikman.lk/en/ads/sri-lanka/commercial-property-rentals";
-        if (hasMatches) {
+
+        if (trulyMatched) {
+          // GREEN
           return (
             <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: "rgba(21,128,61,0.06)", borderColor: "rgba(21,128,61,0.35)" }}>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} alignItems={{ xs: "flex-start", sm: "center" }}>
@@ -1098,21 +1119,42 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
                     Live from ikman.lk · within your budget filter
                   </Typography>
                 </Box>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
-                  href={mapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  sx={{ textTransform: "none", borderRadius: 999 }}
-                >
+                <Button size="small" variant="outlined" endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />} href={mapsUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: "none", borderRadius: 999 }}>
                   Show on Google Maps
                 </Button>
               </Stack>
             </Paper>
           );
         }
+
+        if (totalAnyBudget > 0) {
+          // AMBER — listings exist for this area but none truly within budget
+          const aboveBudget = minP && userBudgetLkr && minP > userBudgetLkr;
+          const priceRange = (minP && maxP)
+            ? (minP === maxP ? `at ${fmtLkr(minP)}` : `from ${fmtLkr(minP)} to ${fmtLkr(maxP)}`)
+            : "";
+          return (
+            <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: "rgba(245,158,11,0.06)", borderColor: "rgba(245,158,11,0.40)" }}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} alignItems={{ xs: "flex-start", sm: "center" }}>
+                <Box sx={{ width: 30, height: 30, borderRadius: "50%", bgcolor: "rgba(245,158,11,0.15)", color: "#b45309", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 700 }}>!</Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" fontWeight={600} sx={{ color: "#b45309" }}>
+                    {totalAnyBudget} listing{totalAnyBudget === 1 ? "" : "s"} mention {area} — {aboveBudget ? "above your budget" : "outside your budget"}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {priceRange ? `Available ${priceRange}` : "Prices not parseable"}
+                    {userBudgetLkr ? ` · your filter: ${fmtLkr(userBudgetLkr)}` : ""} · You may need to expand your budget for this area.
+                  </Typography>
+                </Box>
+                <Button size="small" variant="outlined" endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />} href={mapsUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: "none", borderRadius: 999 }}>
+                  Show on Google Maps
+                </Button>
+              </Stack>
+            </Paper>
+          );
+        }
+
+        // RED — nothing mentions this area at all
         return (
           <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: "rgba(185,28,28,0.05)", borderColor: "rgba(185,28,28,0.30)" }}>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} alignItems={{ xs: "flex-start", sm: "center" }}>

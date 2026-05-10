@@ -35,24 +35,40 @@ class ListingsController extends Controller
         $cacheKey = 'listings.' . md5($area . '|' . $intent . '|' . $budget . '|' . $businessType . '|' . ($areaSpecific ? '1' : '0'));
         $payload = Cache::remember($cacheKey, 3600, function () use ($area, $intent, $budget, $businessType, $areaSpecific) {
             $result = $this->fetchFromIkman($area, $intent, $budget, $businessType);
-            // When the caller wants area-specific results, filter the broad
-            // pool by area-name-in-title. ikman.lk doesn't tag neighbourhoods
-            // structurally so we look for the area name (and known aliases)
-            // in the listing title text.
-            if ($areaSpecific && !empty($result['listings']) && ($result['broadened'] ?? false)) {
-                $filtered = $this->filterByAreaInTitle($result['listings'], $area);
-                $result['area_filtered_count'] = count($filtered);
-                if (count($filtered) > 0) {
-                    $result['listings'] = $filtered;
-                    $result['count'] = count($filtered);
-                    $result['area_match'] = true;
-                } else {
-                    // Honest: nothing in our scraped pool mentions this area
-                    $result['listings'] = [];
-                    $result['count'] = 0;
-                    $result['area_match'] = false;
+
+            // Tri-state availability detection for the per-card banner.
+            //   GREEN  : area-specific listings WITHIN budget exist
+            //   AMBER  : area-specific listings exist but ALL above budget
+            //   RED    : no listings whose title mentions this area at all
+            if ($areaSpecific) {
+                $fullPool = $result['_full_pool'] ?? [];
+                $allInArea = $this->filterByAreaInTitle($fullPool, $area);
+                $result['area_total_any_budget'] = count($allInArea);
+                if (count($allInArea) > 0) {
+                    $prices = array_filter(array_map(fn($L) => $this->parsePriceLkr($L['price'] ?? null), $allInArea));
+                    if (count($prices) > 0) {
+                        $result['area_min_price_lkr'] = min($prices);
+                        $result['area_max_price_lkr'] = max($prices);
+                    }
+                }
+
+                // Filter the (already budget-filtered) listings by area-in-title.
+                if (!empty($result['listings']) && ($result['broadened'] ?? false)) {
+                    $filtered = $this->filterByAreaInTitle($result['listings'], $area);
+                    $result['area_filtered_count'] = count($filtered);
+                    if (count($filtered) > 0) {
+                        $result['listings'] = $filtered;
+                        $result['count'] = count($filtered);
+                        $result['area_match'] = true;
+                    } else {
+                        $result['listings'] = [];
+                        $result['count'] = 0;
+                        $result['area_match'] = false;
+                    }
                 }
             }
+            // Strip the internal _full_pool before returning to the client.
+            unset($result['_full_pool']);
             return $result;
         });
         return response()->json($payload);
@@ -164,6 +180,10 @@ class ListingsController extends Controller
 
                 return [
                     'listings' => array_slice($filtered, 0, 6),
+                    // _full_pool is the unfiltered pool (pre-budget, pre-cap)
+                    // for downstream area-in-title scanning. Stripped from
+                    // the JSON response before sending to the client.
+                    '_full_pool' => $allListings,
                     'source' => 'ikman.lk',
                     'live' => true,
                     'search_url' => $url,
