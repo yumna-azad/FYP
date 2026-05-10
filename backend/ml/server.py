@@ -83,6 +83,11 @@ class AreaRecommendation(BaseModel):
     shap_top_drivers: list[ShapDriver] = Field(default_factory=list)
     shap_math: ShapMath | None = None
     model_score: float = 0.0  # raw XGBoost prediction for this area (pre-clip)
+    # Preferred-area handling: model_rank is the area's true XGBoost-driven
+    # rank; is_preferred_pin is true only when the user's preferred area was
+    # promoted to #1 from a lower model_rank.
+    model_rank: int = 0
+    is_preferred_pin: bool = False
 
 
 class PredictResponse(BaseModel):
@@ -287,11 +292,19 @@ def _score_business_across_months(business_type_key: str) -> list[dict]:
 def _rank_areas(business_type_key: str, land_intent: str, amount: float,
                 preferred_area: str | None, base_score: float,
                 business_features: dict, monthly_features: dict) -> list[dict]:
-    """Composite score per area: ML base score + budget fit + footfall - competition.
+    """Per-area ranking using the XGBoost model as the primary signal.
 
-    Also runs SHAP on a per-area feature vector and attaches the top drivers
-    plus a math-identity check to each area's response. SHAP failures are
-    swallowed so the ranking still works even if the explainer errors.
+    The per-area XGBoost prediction (computed via _area_feature_vector with
+    7 area-varying feature substitutions) considers all 24 features. We use it
+    as the displayed score with a small affordability modifier — areas
+    unaffordable to the user lose a few points, but matching budgets aren't
+    rewarded for being "close" (which the old symmetric ratio formula did).
+
+    SHAP is run on the same per-area feature vector to explain the ranking.
+
+    Preferred-area handling: if the user names a preferred area, it's pinned
+    to rank #1 in the response. The pure model rank (ignoring the pin) is
+    preserved on each item as `model_rank` so the UI can show both.
     """
     ranked = []
     for area in NUWARA_ELIYA_AREAS:
@@ -352,19 +365,35 @@ def _rank_areas(business_type_key: str, land_intent: str, amount: float,
         # Any failure here is logged-and-swallowed so the page still renders.
         shap_top_drivers = []
         shap_math = None
-        model_score = 0.0
+        raw_model_score = 0.0
+        per_area_score = score_100  # fallback to legacy composite
         try:
             X_area = _area_feature_vector(business_features, monthly_features, area)
-            model_score = float(get_model().predict(X_area)[0])
+            raw_model_score = float(get_model().predict(X_area)[0])
+            # Use the per-area XGBoost prediction as the primary score (it
+            # considers all 24 features and varies meaningfully across areas).
+            # Apply the rule adjustment + clip to the same 5..95 band.
+            per_area_score = float(np.clip(raw_model_score + _RULE_ADJUSTMENT, 5, 95))
+
+            # Affordability modifier: only penalise areas the user can't afford.
+            # Symmetric "ratio" rewards (where over-budget == under-budget) are
+            # gone — having budget headroom is good, not equal to being stretched.
+            if amount > 0 and target > 0 and amount < target:
+                # Up to -12 points when amount is half (or less) of typical.
+                shortfall_ratio = max(0.0, min(1.0, 1.0 - (amount / target)))
+                per_area_score = max(5.0, per_area_score - 12.0 * shortfall_ratio)
+
+            per_area_score = round(per_area_score, 1)
+
             drivers, math_check = _shap_for_vector(X_area)
             shap_top_drivers = drivers
             shap_math = math_check
         except Exception:
-            pass  # SHAP missing or errored — leave fields empty, card still renders
+            pass  # SHAP/model errored — fall back to the legacy composite
 
         ranked.append({
             "area": area["name"],
-            "score": score_100,
+            "score": per_area_score,
             "budget_fit": round(budget_fit, 2),
             "footfall_score": round(footfall, 2),
             "competition_score": round(competition, 2),
@@ -375,10 +404,31 @@ def _rank_areas(business_type_key: str, land_intent: str, amount: float,
             "reasoning": reasoning,
             "shap_top_drivers": shap_top_drivers,
             "shap_math": shap_math,
-            "model_score": round(model_score, 4),
+            "model_score": round(raw_model_score, 4),
+            "is_preferred_pin": False,  # set below if pinned
+            "model_rank": 0,             # set below
         })
 
+    # Sort by per-area XGBoost-driven score, capture the honest rank for each.
     ranked.sort(key=lambda r: r["score"], reverse=True)
+    for i, r in enumerate(ranked, start=1):
+        r["model_rank"] = i
+
+    # Pin the preferred area to position #1 (and remember the pin).
+    # The card UI uses `is_preferred_pin` to show "Your preferred choice"
+    # while still printing `model_rank` so the user sees the model's true ranking.
+    if preferred_area:
+        needle = preferred_area.lower().strip()
+        pref_idx = next(
+            (i for i, r in enumerate(ranked) if needle and needle in r["area"].lower()),
+            -1,
+        )
+        if pref_idx >= 0:
+            pref = ranked.pop(pref_idx)
+            pref["is_preferred_pin"] = pref["model_rank"] != 1  # only pinned if it moved
+            ranked.insert(0, pref)
+
+    # Final displayed ranks
     for i, r in enumerate(ranked, start=1):
         r["rank"] = i
     return ranked

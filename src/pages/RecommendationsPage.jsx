@@ -222,6 +222,10 @@ export default function RecommendationsPage() {
       shapTopDrivers: r.shap_top_drivers || [],
       shapMath: r.shap_math || null,
       modelScore: r.model_score ?? null,
+      // Preferred-area pinning: model_rank is the honest XGBoost rank,
+      // is_preferred_pin is true only when the area was promoted to #1.
+      modelRank: r.model_rank ?? r.rank,
+      isPreferredPin: r.is_preferred_pin === true,
       notes: AREA_NOTES[r.area] || [],
     }));
   }, [data]);
@@ -411,6 +415,13 @@ export default function RecommendationsPage() {
                         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.25 }}>
                           <Chip size="small" label={`#${loc.rank}`} variant="outlined" sx={{ fontWeight: 600, height: 20 }} />
                           <Typography variant="subtitle2" fontWeight={600} noWrap>{loc.name}</Typography>
+                          {loc.isPreferredPin && (
+                            <Chip
+                              size="small"
+                              label={`★ Your choice · model #${loc.modelRank}`}
+                              sx={{ height: 20, fontSize: 10, fontWeight: 500, bgcolor: "rgba(180, 83, 9, 0.12)", color: "#b45309", fontStyle: "italic" }}
+                            />
+                          )}
                           <Chip size="small" label={band.label} sx={{ ml: "auto !important", bgcolor: band.bg, color: band.color, height: 20, fontSize: 11, fontWeight: 500 }} />
                         </Stack>
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, lineHeight: 1.55 }}>
