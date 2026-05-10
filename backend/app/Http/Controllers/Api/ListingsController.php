@@ -66,6 +66,15 @@ class ListingsController extends Controller
                         $result['area_match'] = false;
                     }
                 }
+
+                // Always also surface a broader Nuwara Eliya commercial pool
+                // (no area filter, no budget filter) so even a RED card shows
+                // the user that properties for their business type DO exist
+                // somewhere in the city. Capped at 6 for display.
+                $broaderPool = $fullPool ?? [];
+                $broaderPool = array_slice($broaderPool, 0, 6);
+                $result['broader_pool'] = $broaderPool;
+                $result['broader_pool_total'] = count($fullPool ?? []);
             }
             // Strip the internal _full_pool before returning to the client.
             unset($result['_full_pool']);

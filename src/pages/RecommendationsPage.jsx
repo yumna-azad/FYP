@@ -1280,6 +1280,76 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
           )}
         </>
       )}
+
+      {/* Always-on fallback: broader Nuwara Eliya pool for the user's business
+          type. Visible regardless of the area-specific banner state, so even a
+          RED 'no listings here' card still shows the user that properties for
+          their business DO exist somewhere in the city. */}
+      {!state.loading && areaSpecific && Array.isArray(state.payload?.broader_pool) && state.payload.broader_pool.length > 0 && (
+        <Box sx={{ mt: 3, pt: 3, borderTop: "1px solid", borderColor: "divider" }}>
+          <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1 }}>
+            <Typography sx={{ fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", color: "text.secondary", fontWeight: 500 }}>
+              More commercial properties in Nuwara Eliya
+            </Typography>
+            <Chip
+              size="small"
+              label={`${state.payload.broader_pool_total ?? state.payload.broader_pool.length} total`}
+              sx={{ height: 18, fontSize: 9.5, bgcolor: "rgba(0,0,0,0.05)", color: "text.secondary" }}
+            />
+          </Stack>
+          <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mb: 2 }}>
+            Any commercial property {intent === "purchase" ? "for sale" : "for rent"} in Nuwara Eliya — regardless of area or your budget. Useful for understanding the broader market when your specific area + budget combination has limited results.
+          </Typography>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 1.5 }}>
+            {state.payload.broader_pool.map((L, i) => (
+              <Paper
+                key={`broader-${L.url}-${i}`}
+                variant="outlined"
+                component="a"
+                href={L.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  borderRadius: 2,
+                  textDecoration: "none",
+                  color: "inherit",
+                  overflow: "hidden",
+                  display: "flex",
+                  flexDirection: "column",
+                  opacity: 0.85,
+                  transition: "border-color 0.2s, transform 0.15s, opacity 0.15s",
+                  "&:hover": { borderColor: "primary.main", transform: "translateY(-1px)", opacity: 1 },
+                }}
+              >
+                {L.image ? (
+                  <Box
+                    component="img"
+                    src={L.image}
+                    alt={L.title}
+                    loading="lazy"
+                    sx={{ width: "100%", height: 100, objectFit: "cover", bgcolor: "rgba(0,0,0,0.04)" }}
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  />
+                ) : (
+                  <Box sx={{ width: "100%", height: 100, bgcolor: "rgba(0,0,0,0.04)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <HomeWorkOutlinedIcon sx={{ fontSize: 28, color: "text.secondary", opacity: 0.4 }} />
+                  </Box>
+                )}
+                <Box sx={{ p: 1.25, flex: 1, display: "flex", flexDirection: "column", gap: 0.5 }}>
+                  <Typography variant="body2" fontWeight={500} sx={{ fontSize: "0.8125rem", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.35 }}>
+                    {L.title}
+                  </Typography>
+                  {L.price && (
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
+                      {L.price}
+                    </Typography>
+                  )}
+                </Box>
+              </Paper>
+            ))}
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 }
