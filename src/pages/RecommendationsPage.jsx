@@ -1285,12 +1285,26 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
           type. Visible regardless of the area-specific banner state, so even a
           RED 'no listings here' card still shows the user that properties for
           their business DO exist somewhere in the city. */}
-      {!state.loading && areaSpecific && Array.isArray(state.payload?.broader_pool) && state.payload.broader_pool.length > 0 && (
+      {!state.loading && areaSpecific && Array.isArray(state.payload?.broader_pool) && state.payload.broader_pool.length > 0 && (() => {
+        // Display the user's business type so it's obvious this list is
+        // pre-filtered for their chosen business — not just a random pool.
+        const niceType = (businessType || "").replace(/_/g, " ");
+        const intentVerb = intent === "purchase" ? "for sale" : "for rent";
+        return (
         <Box sx={{ mt: 3, pt: 3, borderTop: "1px solid", borderColor: "divider" }}>
-          <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1 }}>
+          <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1, flexWrap: "wrap", rowGap: 0.5 }}>
             <Typography sx={{ fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", color: "text.secondary", fontWeight: 500 }}>
-              More commercial properties in Nuwara Eliya
+              {niceType
+                ? `More ${niceType} options ${intentVerb} in Nuwara Eliya`
+                : `More commercial properties ${intentVerb} in Nuwara Eliya`}
             </Typography>
+            {niceType && (
+              <Chip
+                size="small"
+                label={`for ${niceType}`}
+                sx={{ height: 18, fontSize: 9.5, bgcolor: "rgba(13,148,136,0.10)", color: "primary.main", fontWeight: 500 }}
+              />
+            )}
             <Chip
               size="small"
               label={`${state.payload.broader_pool_total ?? state.payload.broader_pool.length} total`}
@@ -1298,7 +1312,7 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
             />
           </Stack>
           <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mb: 2 }}>
-            Any commercial property {intent === "purchase" ? "for sale" : "for rent"} in Nuwara Eliya — regardless of area or your budget. Useful for understanding the broader market when your specific area + budget combination has limited results.
+            Commercial spaces {intentVerb}{niceType ? `, biased toward ${niceType}` : ""} — across all of Nuwara Eliya, regardless of which area or your specific budget. Useful when your selected area + budget combination has limited results.
           </Typography>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 1.5 }}>
             {state.payload.broader_pool.map((L, i) => (
@@ -1349,7 +1363,8 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
             ))}
           </Box>
         </Box>
-      )}
+        );
+      })()}
     </Box>
   );
 }
