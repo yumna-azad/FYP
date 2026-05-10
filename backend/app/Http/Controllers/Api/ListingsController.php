@@ -42,42 +42,52 @@ class ListingsController extends Controller
     {
         $verb = $intent === 'sale' ? 'sale' : 'rent';
 
-        // Try a narrow search first (with area + business type for relevance),
-        // then progressively broader queries if that returns nothing. ikman.lk
-        // searches against listing titles, and most Nuwara Eliya listings don't
-        // mention the specific neighbourhood, so narrow queries often miss ads.
+        // ikman.lk dedicated commercial categories — these exclude residential
+        // bungalows / rooms / annexes by construction, so the listings are
+        // already business-suitable. We hit these FIRST.
+        $commercialCategoryPath = $intent === 'sale'
+            ? '/en/ads/sri-lanka/commercial-properties-for-sale'
+            : '/en/ads/sri-lanka/commercial-property-rentals';
+
         $bizHint = $this->businessSearchHint($businessType);
-        $queries = array_values(array_unique(array_filter([
-            // 1) Most specific: area + commercial/business hint + intent
-            $bizHint ? ($this->withNuwaraEliya($area) . " $bizHint $verb") : null,
-            // 2) Area + intent (no business hint)
-            $this->withNuwaraEliya($area) . " $verb",
-            // 3) Just Nuwara Eliya commercial + intent
-            $bizHint ? "Nuwara Eliya $bizHint $verb" : null,
-            // 4) Nuwara Eliya broad
-            "Nuwara Eliya $verb",
-        ])));
+        $areaWithNE = $this->withNuwaraEliya($area);
+
+        // Priority list of (path, query) pairs. Earlier entries are more
+        // specific; later entries are progressively broader fallbacks.
+        $attempts = [];
+        // 1) Commercial category + area + Nuwara Eliya
+        $attempts[] = [$commercialCategoryPath, $areaWithNE];
+        // 2) Commercial category + Nuwara Eliya only (when area-specific is too narrow)
+        $attempts[] = [$commercialCategoryPath, 'Nuwara Eliya'];
+        // 3) Commercial category, no query (whole NE area in this category)
+        $attempts[] = [$commercialCategoryPath, ''];
+        // 4) Generic property category with business-type bias (fallback when
+        //    commercial category is empty for the area, e.g. retail rentals).
+        if ($bizHint) {
+            $attempts[] = ['/en/ads/sri-lanka/property', "$areaWithNE $bizHint $verb"];
+            $attempts[] = ['/en/ads/sri-lanka/property', "Nuwara Eliya $bizHint $verb"];
+        }
+        // 5) Generic property category broad fallback
+        $attempts[] = ['/en/ads/sri-lanka/property', "Nuwara Eliya $verb"];
 
         $lastUrl = '';
-        $lastQuery = '';
         try {
-            foreach ($queries as $q) {
-                $url = 'https://ikman.lk/en/ads/sri-lanka/property?query=' . urlencode($q);
+            foreach ($attempts as $i => [$path, $q]) {
+                $url = 'https://ikman.lk' . $path . ($q !== '' ? '?query=' . urlencode($q) : '');
                 $lastUrl = $url;
-                $lastQuery = $q;
 
                 $html = $this->httpFetch($url, 8);
                 if ($html === null) {
                     continue;
                 }
                 $allListings = $this->parseIkmanListings($html);
+                // Drop residential-only titles (bungalow/villa/room/annex) for
+                // non-hotel business types — they're not realistic SME spaces.
+                $allListings = $this->dropResidentialIfBusiness($allListings, $businessType);
                 if (count($allListings) === 0) {
                     continue;
                 }
 
-                // Apply budget filtering with tiered fallback so the user
-                // never sees a wall of irrelevant Rs 4,500 daily-bungalow ads
-                // when their budget is LKR 100,000+.
                 [$filtered, $budgetWidth] = $this->budgetFilter($allListings, $budget);
 
                 return [
@@ -86,11 +96,12 @@ class ListingsController extends Controller
                     'live' => true,
                     'search_url' => $url,
                     'query' => $q,
-                    'broadened' => $q !== $queries[0],
+                    'category' => str_contains($path, 'commercial') ? 'commercial' : 'general',
+                    'broadened' => $i > 0,
                     'fetched_at' => now()->toIso8601String(),
                     'count' => count($filtered),
                     'total_before_budget_filter' => count($allListings),
-                    'budget_filter' => $budgetWidth,        // 'tight' | 'wide' | 'none'
+                    'budget_filter' => $budgetWidth,
                     'user_budget_lkr' => $budget > 0 ? (int) $budget : null,
                 ];
             }
@@ -98,6 +109,25 @@ class ListingsController extends Controller
         } catch (\Throwable $e) {
             return $this->errorPayload($lastUrl, $e->getMessage());
         }
+    }
+
+    /**
+     * For non-hotel commercial businesses (cafe, restaurant, retail, wellness),
+     * drop listings whose titles scream "residential only" — bungalow, villa,
+     * room, annex, holiday. Hotel buyers actually want these, so leave them
+     * alone for hotel business type.
+     */
+    private function dropResidentialIfBusiness(array $listings, string $businessType): array
+    {
+        $key = strtolower(trim(str_replace('_', ' ', $businessType)));
+        if ($key === '' || $key === 'hotel') {
+            return $listings;
+        }
+        $blocked = '/\b(bungalow|villa|holiday|annex|room|guest|guesthouse|cabana)\b/i';
+        $kept = array_filter($listings, fn($L) => !preg_match($blocked, $L['title'] ?? ''));
+        // If filter removes everything, return original — better to show
+        // something with honest framing than nothing at all.
+        return count($kept) > 0 ? array_values($kept) : $listings;
     }
 
     private function withNuwaraEliya(string $area): string
