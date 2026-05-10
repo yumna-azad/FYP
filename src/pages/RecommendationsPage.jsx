@@ -1075,17 +1075,80 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
         )}
       </Stack>
 
+      {/* PROMINENT availability banner — answers the question
+          "are there any commercial properties for this area?" at a glance.
+          Plus a "Show them on Google Maps" deep-link so the user can see
+          the listings on a real map. */}
+      {!state.loading && areaSpecific && (() => {
+        const count = state.payload?.listings?.length ?? 0;
+        const hasMatches = state.payload?.area_match === true && count > 0;
+        const intentLabel = intent === "purchase" ? "for sale" : "for rent";
+        const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(`commercial property ${intentLabel} ${area}, Nuwara Eliya, Sri Lanka`)}`;
+        const browseUrl = state.payload?.search_url || "https://ikman.lk/en/ads/sri-lanka/commercial-property-rentals";
+        if (hasMatches) {
+          return (
+            <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: "rgba(21,128,61,0.06)", borderColor: "rgba(21,128,61,0.35)" }}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} alignItems={{ xs: "flex-start", sm: "center" }}>
+                <Box sx={{ width: 30, height: 30, borderRadius: "50%", bgcolor: "rgba(21,128,61,0.15)", color: "#15803d", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 700 }}>✓</Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" fontWeight={600} sx={{ color: "#15803d" }}>
+                    {count} commercial {count === 1 ? "property" : "properties"} {intentLabel} mentioning {area}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Live from ikman.lk · within your budget filter
+                  </Typography>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ textTransform: "none", borderRadius: 999 }}
+                >
+                  Show on Google Maps
+                </Button>
+              </Stack>
+            </Paper>
+          );
+        }
+        return (
+          <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: "rgba(185,28,28,0.05)", borderColor: "rgba(185,28,28,0.30)" }}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} alignItems={{ xs: "flex-start", sm: "center" }}>
+              <Box sx={{ width: 30, height: 30, borderRadius: "50%", bgcolor: "rgba(185,28,28,0.12)", color: "#b91c1c", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 700 }}>—</Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" fontWeight={600} sx={{ color: "#b91c1c" }}>
+                  No commercial {intentLabel} listings in {area} right now
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  ikman.lk has nothing whose title mentions {area} today. Try the broader Nuwara Eliya pool.
+                </Typography>
+              </Box>
+              <Stack direction="row" spacing={1}>
+                <Button size="small" variant="outlined" endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />} href={mapsUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: "none", borderRadius: 999 }}>
+                  Try Google Maps
+                </Button>
+                <Button size="small" variant="contained" endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />} href={browseUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: "none", borderRadius: 999 }}>
+                  Browse Nuwara Eliya
+                </Button>
+              </Stack>
+            </Stack>
+          </Paper>
+        );
+      })()}
+
       <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mb: 2 }}>
         {areaSpecific
           ? state.payload?.area_match === false
-            ? `ikman.lk has no commercial listings whose title mentions "${area}" right now. The closest data we have is the broader Nuwara Eliya commercial pool — click an external platform below to browse all of it. `
-            : `Filtered to listings whose title mentions "${area}" — these are properties most likely to be in or near your selected area. `
+            ? `Filter detail: post-filtered the broad Nuwara Eliya pool (${state.payload?.total_before_budget_filter ?? 0} scraped) for titles mentioning "${area}" — found 0 within your budget. `
+            : `Filtered to listings whose title mentions "${area}". `
           : `ikman.lk lists commercial properties at the city level, not by neighbourhood. `}
         {state.payload?.user_budget_lkr && state.payload?.budget_filter === "tight" && (
           <>Within ±50% of your LKR {state.payload.user_budget_lkr.toLocaleString()} {intent === "purchase" ? "purchase" : "rent"} budget. </>
         )}
         {state.payload?.user_budget_lkr && state.payload?.budget_filter === "wide" && (
-          <>Wider range (no exact matches at LKR {state.payload.user_budget_lkr.toLocaleString()} for {intent === "purchase" ? "purchase" : "rent"}). </>
+          <>Wider range (no exact matches at LKR {state.payload.user_budget_lkr.toLocaleString()}). </>
         )}
         {state.payload?.user_budget_lkr && state.payload?.budget_filter === "none" && (
           <>No listings matched your LKR {state.payload.user_budget_lkr.toLocaleString()} budget. </>
