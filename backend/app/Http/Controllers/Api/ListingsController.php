@@ -20,6 +20,8 @@ class ListingsController extends Controller
     {
         $area = trim((string) $request->query('area', ''));
         $intent = $request->query('intent') === 'purchase' ? 'sale' : 'rent';
+        $budget = (float) $request->query('budget', 0);
+        $businessType = trim((string) $request->query('business_type', ''));
         if (!$area) {
             return response()->json([
                 'listings' => [],
@@ -29,26 +31,32 @@ class ListingsController extends Controller
             ], 422);
         }
 
-        $cacheKey = 'listings.' . md5($area . '|' . $intent);
-        $payload = Cache::remember($cacheKey, 3600, function () use ($area, $intent) {
-            return $this->fetchFromIkman($area, $intent);
+        $cacheKey = 'listings.' . md5($area . '|' . $intent . '|' . $budget . '|' . $businessType);
+        $payload = Cache::remember($cacheKey, 3600, function () use ($area, $intent, $budget, $businessType) {
+            return $this->fetchFromIkman($area, $intent, $budget, $businessType);
         });
         return response()->json($payload);
     }
 
-    private function fetchFromIkman(string $area, string $intent): array
+    private function fetchFromIkman(string $area, string $intent, float $budget, string $businessType): array
     {
         $verb = $intent === 'sale' ? 'sale' : 'rent';
 
-        // Try a narrow search first (with the specific area name), then fall
-        // back to a broader Nuwara Eliya search if the narrow one returns
-        // nothing. ikman.lk searches against listing titles, and most
-        // Nuwara Eliya listings don't mention the specific neighbourhood by
-        // name in their title, so the narrow search often misses real ads.
-        $queries = [
-            stripos($area, 'nuwara eliya') !== false ? "$area $verb" : "$area Nuwara Eliya $verb",
+        // Try a narrow search first (with area + business type for relevance),
+        // then progressively broader queries if that returns nothing. ikman.lk
+        // searches against listing titles, and most Nuwara Eliya listings don't
+        // mention the specific neighbourhood, so narrow queries often miss ads.
+        $bizHint = $this->businessSearchHint($businessType);
+        $queries = array_values(array_unique(array_filter([
+            // 1) Most specific: area + commercial/business hint + intent
+            $bizHint ? ($this->withNuwaraEliya($area) . " $bizHint $verb") : null,
+            // 2) Area + intent (no business hint)
+            $this->withNuwaraEliya($area) . " $verb",
+            // 3) Just Nuwara Eliya commercial + intent
+            $bizHint ? "Nuwara Eliya $bizHint $verb" : null,
+            // 4) Nuwara Eliya broad
             "Nuwara Eliya $verb",
-        ];
+        ])));
 
         $lastUrl = '';
         $lastQuery = '';
@@ -62,26 +70,111 @@ class ListingsController extends Controller
                 if ($html === null) {
                     continue;
                 }
-                $listings = $this->parseIkmanListings($html);
-                if (count($listings) === 0) {
+                $allListings = $this->parseIkmanListings($html);
+                if (count($allListings) === 0) {
                     continue;
                 }
 
+                // Apply budget filtering with tiered fallback so the user
+                // never sees a wall of irrelevant Rs 4,500 daily-bungalow ads
+                // when their budget is LKR 100,000+.
+                [$filtered, $budgetWidth] = $this->budgetFilter($allListings, $budget);
+
                 return [
-                    'listings' => array_slice($listings, 0, 6),
+                    'listings' => array_slice($filtered, 0, 6),
                     'source' => 'ikman.lk',
                     'live' => true,
                     'search_url' => $url,
                     'query' => $q,
                     'broadened' => $q !== $queries[0],
                     'fetched_at' => now()->toIso8601String(),
-                    'count' => count($listings),
+                    'count' => count($filtered),
+                    'total_before_budget_filter' => count($allListings),
+                    'budget_filter' => $budgetWidth,        // 'tight' | 'wide' | 'none'
+                    'user_budget_lkr' => $budget > 0 ? (int) $budget : null,
                 ];
             }
             return $this->errorPayload($lastUrl, 'no_results');
         } catch (\Throwable $e) {
             return $this->errorPayload($lastUrl, $e->getMessage());
         }
+    }
+
+    private function withNuwaraEliya(string $area): string
+    {
+        return stripos($area, 'nuwara eliya') !== false ? $area : "$area Nuwara Eliya";
+    }
+
+    /**
+     * Map a SmartLoc business type to an ikman.lk-friendly search hint
+     * that biases toward commercial / business-suitable listings.
+     */
+    private function businessSearchHint(string $businessType): string
+    {
+        $key = strtolower(trim(str_replace('_', ' ', $businessType)));
+        return match (true) {
+            $key === 'cafe' || $key === 'restaurant' => 'commercial shop',
+            $key === 'retail shop' => 'commercial shop',
+            $key === 'wellness center' => 'commercial',
+            $key === 'hotel' => 'hotel',
+            $key !== ''                                => 'commercial',
+            default                                     => '',
+        };
+    }
+
+    /**
+     * Filter listings by the user's budget. Tiered fallback so the user
+     * always sees something:
+     *   - 'tight': within +/-50% of budget
+     *   - 'wide' : within budget*0.25 to budget*2.0
+     *   - 'none' : budget unknown or no priced listings; return all
+     * Returns [listings, widthLabel].
+     */
+    private function budgetFilter(array $listings, float $budget): array
+    {
+        if ($budget <= 0) {
+            return [$listings, 'none'];
+        }
+
+        $withPrice = [];
+        foreach ($listings as $L) {
+            $p = $this->parsePriceLkr($L['price'] ?? null);
+            if ($p !== null) {
+                $L['price_lkr'] = $p;
+                $withPrice[] = $L;
+            }
+        }
+
+        if (count($withPrice) === 0) {
+            return [$listings, 'none'];
+        }
+
+        // Tier 1: tight band, +/- 50%
+        $tightLow = $budget * 0.5;
+        $tightHigh = $budget * 1.5;
+        $tight = array_filter($withPrice, fn($L) => $L['price_lkr'] >= $tightLow && $L['price_lkr'] <= $tightHigh);
+        if (count($tight) > 0) {
+            return [array_values($tight), 'tight'];
+        }
+
+        // Tier 2: wide band, 0.25x .. 2x
+        $wideLow = $budget * 0.25;
+        $wideHigh = $budget * 2.0;
+        $wide = array_filter($withPrice, fn($L) => $L['price_lkr'] >= $wideLow && $L['price_lkr'] <= $wideHigh);
+        if (count($wide) > 0) {
+            return [array_values($wide), 'wide'];
+        }
+
+        // Nothing matched the budget — return everything (with prices first)
+        return [array_merge($withPrice, array_values(array_diff_key($listings, $withPrice))), 'none'];
+    }
+
+    private function parsePriceLkr(?string $priceStr): ?int
+    {
+        if (!$priceStr) return null;
+        if (!preg_match('/[\d,]+/', $priceStr, $m)) return null;
+        $clean = (int) str_replace(',', '', $m[0]);
+        return $clean > 0 ? $clean : null;
     }
 
     /**

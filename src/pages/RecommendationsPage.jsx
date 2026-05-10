@@ -739,6 +739,8 @@ export default function RecommendationsPage() {
               <LiveListings
                 area={selectedLocation.name}
                 intent={(() => { try { return JSON.parse(sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY) || "{}").landIntent || "rent"; } catch { return "rent"; } })()}
+                budget={(() => { try { return Number(JSON.parse(sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY) || "{}").amount || 0); } catch { return 0; } })()}
+                businessType={data?.business_type || ""}
               />
             </Box>
 
@@ -1008,19 +1010,25 @@ function propertyResources(areaName, businessType, landIntent) {
 // our Laravel /api/listings endpoint (server-side cache, 1h TTL). Renders
 // a loading skeleton, an empty/error state, and a grid of cards with image,
 // title, price, and a link out to the original ad on ikman.lk.
-function LiveListings({ area, intent }) {
+function LiveListings({ area, intent, budget, businessType }) {
   const [state, setState] = React.useState({ loading: true, payload: null, error: null });
   const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
   React.useEffect(() => {
     let cancelled = false;
     setState({ loading: true, payload: null, error: null });
-    fetch(`${apiBase}/api/listings?area=${encodeURIComponent(area)}&intent=${encodeURIComponent(intent)}`)
+    const params = new URLSearchParams({
+      area: area || "",
+      intent: intent || "rent",
+    });
+    if (Number(budget) > 0) params.set("budget", String(Number(budget)));
+    if (businessType) params.set("business_type", businessType);
+    fetch(`${apiBase}/api/listings?${params.toString()}`)
       .then((r) => r.json())
       .then((j) => { if (!cancelled) setState({ loading: false, payload: j, error: null }); })
       .catch((e) => { if (!cancelled) setState({ loading: false, payload: null, error: e.message }); });
     return () => { cancelled = true; };
-  }, [area, intent, apiBase]);
+  }, [area, intent, budget, businessType, apiBase]);
 
   return (
     <Box>
@@ -1034,9 +1042,18 @@ function LiveListings({ area, intent }) {
       </Stack>
       <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mb: 2 }}>
         {state.payload?.broadened
-          ? `No listings found that name "${area}" specifically — showing Nuwara Eliya listings instead. `
-          : `Real listings scraped live from ikman.lk for ${area}. `}
-        Cached one hour server-side. Click any card to open the original ad on ikman.lk.
+          ? `No listings name "${area}" specifically — showing Nuwara Eliya listings instead. `
+          : `Live listings from ikman.lk for ${area}. `}
+        {state.payload?.user_budget_lkr && state.payload?.budget_filter === "tight" && (
+          <>Filtered to within ±50% of your LKR {state.payload.user_budget_lkr.toLocaleString()} budget. </>
+        )}
+        {state.payload?.user_budget_lkr && state.payload?.budget_filter === "wide" && (
+          <>Showing a wider range (no exact matches at LKR {state.payload.user_budget_lkr.toLocaleString()}). </>
+        )}
+        {state.payload?.user_budget_lkr && state.payload?.budget_filter === "none" && (
+          <>No listings matched your LKR {state.payload.user_budget_lkr.toLocaleString()} budget — showing all available. </>
+        )}
+        Cached one hour server-side. Click any card to open the original ad.
       </Typography>
 
       {state.loading && (
