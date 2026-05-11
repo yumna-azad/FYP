@@ -1049,11 +1049,19 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
   // every area card).
   const specificCount = state.payload?.area_match_breakdown?.specific || 0;
   const genericCount = state.payload?.area_match_breakdown?.generic || 0;
+
+  // Listings filtered to specific-only (when areaSpecific). Lifted here
+  // to component scope so the banner IIFE AND the render grid AND the
+  // footer can all use the same filtered array.
+  const _allListings = state.payload?.listings || [];
+  const specificListings = areaSpecific
+    ? _allListings.filter((L) => L.match_type === "specific")
+    : _allListings;
   const sectionTitle = !areaSpecific
     ? "Live commercial properties in Nuwara Eliya"
     : specificCount > 0
-      ? `Properties in ${area}`
-      : `Properties in Nuwara Eliya (no listings specifically name ${area})`;
+      ? `Properties specifically in ${area}`
+      : `Properties in ${area}`;
 
   return (
     <Box>
@@ -1102,12 +1110,31 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
           if (n >= 1_000) return `Rs ${Math.round(n / 1_000)}k`;
           return `Rs ${Number(n).toLocaleString()}`;
         };
-        const count = state.payload?.listings?.length ?? 0;
-        const totalAnyBudget = Number(state.payload?.area_total_any_budget ?? 0);
-        const minP = state.payload?.area_min_price_lkr;
-        const maxP = state.payload?.area_max_price_lkr;
+        // specificListings is defined at component scope above so we can
+        // reuse it here, in the render grid, and in the footer.
+        const count = specificListings.length;
+        // Recompute budget breakdown from specific-only listings.
+        const breakdown = areaSpecific
+          ? specificListings.reduce(
+              (acc, L) => { acc[L.budget_status || "unknown"] = (acc[L.budget_status || "unknown"] || 0) + 1; return acc; },
+              { within: 0, above: 0, below: 0, unknown: 0 }
+            )
+          : (state.payload?.area_budget_breakdown || { within: 0, above: 0, below: 0, unknown: 0 });
+        // For specific-only, recompute price range too.
+        let minP = state.payload?.area_min_price_lkr;
+        let maxP = state.payload?.area_max_price_lkr;
+        if (areaSpecific && specificListings.length > 0) {
+          const prices = specificListings.map((L) => L.price_lkr).filter((p) => p != null);
+          if (prices.length > 0) {
+            minP = Math.min(...prices);
+            maxP = Math.max(...prices);
+          } else {
+            minP = null;
+            maxP = null;
+          }
+        }
+        const totalAnyBudget = areaSpecific ? specificListings.length : Number(state.payload?.area_total_any_budget ?? 0);
         const userBudgetLkr = state.payload?.user_budget_lkr;
-        const breakdown = state.payload?.area_budget_breakdown || { within: 0, above: 0, below: 0, unknown: 0 };
         const intentLabel = intent === "purchase" ? "for sale" : "for rent";
         const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(`commercial property ${intentLabel} ${area}, Nuwara Eliya, Sri Lanka`)}`;
         const browseUrl = state.payload?.search_url || "https://ikman.lk/en/ads/sri-lanka/commercial-property-rentals";
@@ -1254,26 +1281,17 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
         </Paper>
       )}
 
-      {!state.loading && state.payload?.listings?.length > 0 && (
+      {!state.loading && areaSpecific && specificListings.length === 0 && (
+        <Box sx={{ p: 1.25, mb: 1.5, borderRadius: 2, bgcolor: "rgba(0,0,0,0.03)", border: "1px dashed", borderColor: "divider" }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", fontStyle: "italic" }}>
+            No ikman.lk listings specifically mention {area} right now. See the "Find available properties" buttons below to search external platforms, or scroll down to the broader Nuwara Eliya pool for general commercial properties.
+          </Typography>
+        </Box>
+      )}
+      {!state.loading && (areaSpecific ? specificListings.length > 0 : (state.payload?.listings?.length || 0) > 0) && (
         <>
-          {/* Transparency note when listings include generic NE matches —
-              they'll appear on other area cards too. */}
-          {areaSpecific && genericCount > 0 && specificCount === 0 && (
-            <Box sx={{ p: 1.25, mb: 1.5, borderRadius: 2, bgcolor: "rgba(0,0,0,0.03)", border: "1px dashed", borderColor: "divider" }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontStyle: "italic" }}>
-                These listings don't name a specific Nuwara Eliya neighbourhood, so the same listings appear on every area card. To filter for {area} specifically, use the "Show on Google Maps" button above or the external platform links below.
-              </Typography>
-            </Box>
-          )}
-          {areaSpecific && genericCount > 0 && specificCount > 0 && (
-            <Box sx={{ p: 1.25, mb: 1.5, borderRadius: 2, bgcolor: "rgba(0,0,0,0.03)", border: "1px dashed", borderColor: "divider" }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontStyle: "italic" }}>
-                {specificCount} {specificCount === 1 ? "listing" : "listings"} specifically name {area}; {genericCount} are general Nuwara Eliya (these also appear on other area cards).
-              </Typography>
-            </Box>
-          )}
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 1.5 }}>
-            {state.payload.listings.map((L, i) => (
+            {(areaSpecific ? specificListings : state.payload.listings).map((L, i) => (
               <Paper
                 key={`${L.url}-${i}`}
                 variant="outlined"
@@ -1338,7 +1356,7 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
           </Box>
           {state.payload.search_url && (
             <Typography variant="caption" sx={{ display: "block", mt: 1.5, color: "text.secondary" }}>
-              Showing {state.payload.listings.length} of {state.payload.count || state.payload.listings.length}. {" "}
+              Showing {areaSpecific ? specificListings.length : state.payload.listings.length} of {areaSpecific ? specificListings.length : (state.payload.count || state.payload.listings.length)}. {" "}
               <Box component="a" href={state.payload.search_url} target="_blank" rel="noopener noreferrer" sx={{ color: "primary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>
                 See all on ikman.lk →
               </Box>
