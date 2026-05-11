@@ -1042,11 +1042,24 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
     return () => { cancelled = true; };
   }, [area, intent, budget, businessType, areaSpecific, apiBase]);
 
+  // For area-specific cards, change the section title based on how many
+  // listings specifically name this area vs are city-wide. This avoids the
+  // misleading "PROPERTIES MENTIONING HAKGALA ROAD" header when all the
+  // listings are actually generic "Nuwara Eliya" ones (which appear on
+  // every area card).
+  const specificCount = state.payload?.area_match_breakdown?.specific || 0;
+  const genericCount = state.payload?.area_match_breakdown?.generic || 0;
+  const sectionTitle = !areaSpecific
+    ? "Live commercial properties in Nuwara Eliya"
+    : specificCount > 0
+      ? `Properties in ${area}`
+      : `Properties in Nuwara Eliya (no listings specifically name ${area})`;
+
   return (
     <Box>
       <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1 }}>
         <Typography sx={{ fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", color: "text.secondary", fontWeight: 500 }}>
-          {areaSpecific ? `Properties mentioning ${area}` : `Live commercial properties in Nuwara Eliya`}
+          {sectionTitle}
         </Typography>
         {state.payload?.live && (
           <Chip size="small" label="Live · ikman.lk" sx={{ height: 18, fontSize: 9.5, bgcolor: "rgba(13,148,136,0.12)", color: "primary.main", fontWeight: 500 }} />
@@ -1243,6 +1256,22 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
 
       {!state.loading && state.payload?.listings?.length > 0 && (
         <>
+          {/* Transparency note when listings include generic NE matches —
+              they'll appear on other area cards too. */}
+          {areaSpecific && genericCount > 0 && specificCount === 0 && (
+            <Box sx={{ p: 1.25, mb: 1.5, borderRadius: 2, bgcolor: "rgba(0,0,0,0.03)", border: "1px dashed", borderColor: "divider" }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", fontStyle: "italic" }}>
+                These listings don't name a specific Nuwara Eliya neighbourhood, so the same listings appear on every area card. To filter for {area} specifically, use the "Show on Google Maps" button above or the external platform links below.
+              </Typography>
+            </Box>
+          )}
+          {areaSpecific && genericCount > 0 && specificCount > 0 && (
+            <Box sx={{ p: 1.25, mb: 1.5, borderRadius: 2, bgcolor: "rgba(0,0,0,0.03)", border: "1px dashed", borderColor: "divider" }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", fontStyle: "italic" }}>
+                {specificCount} {specificCount === 1 ? "listing" : "listings"} specifically name {area}; {genericCount} are general Nuwara Eliya (these also appear on other area cards).
+              </Typography>
+            </Box>
+          )}
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 1.5 }}>
             {state.payload.listings.map((L, i) => (
               <Paper
