@@ -336,22 +336,41 @@ class ListingsController extends Controller
     }
 
     /**
-     * For non-hotel commercial businesses (cafe, restaurant, retail, wellness),
-     * drop listings whose titles scream "residential only" — bungalow, villa,
-     * room, annex, holiday. Hotel buyers actually want these, so leave them
-     * alone for hotel business type.
+     * Relaxed property-type filter. Many SME businesses can operate from
+     * bungalows or villas (a cafe in a converted house, a wellness centre
+     * in a hill-station bungalow), so we leave those listings alone for
+     * cafe / restaurant / wellness_center / hotel — they're plausibly
+     * convertible. Only retail_shop strictly requires actual commercial
+     * shop space, so for retail_shop we drop bungalows / villas / rooms.
+     *
+     * Across ALL business types we still drop "Rooms / Apartment" type
+     * listings because those are sub-units of larger buildings (just a
+     * bedroom or apartment unit) — not standalone properties any SME can
+     * operate from.
      */
     private function dropResidentialIfBusiness(array $listings, string $businessType): array
     {
         $key = strtolower(trim(str_replace('_', ' ', $businessType)));
         if ($key === '' || $key === 'hotel') {
+            // Hotel buyers want bungalow / villa / guest house listings;
+            // they're prime candidates for conversion. Keep everything.
             return $listings;
         }
-        $blocked = '/\b(bungalows?|villas?|holiday|annex(?:e|es)?|rooms?|guests?|guesthouses?|cabanas?|apartments?|condos?|home\s*stay|homestays?|gest\s*hous)\b/i';
-        $kept = array_filter($listings, fn($L) => !preg_match($blocked, $L['title'] ?? ''));
-        // Strict drop: if every listing is residential, return empty.
-        // Better to show a clean 'no commercial listings exist' than a wall
-        // of holiday bungalows pretending to be commercial cafe spaces.
+
+        // Always drop pure room / apartment listings — too small for any
+        // SME business to operate from.
+        $alwaysBlocked = '/\b(rooms?|apartments?|condos?|home\s*stay|homestays?|gest\s*hous)\b/i';
+
+        // For retail_shop only, ALSO drop standalone bungalows / villas /
+        // guest houses — retail genuinely needs shop frontage.
+        $retailOnlyBlocked = '/\b(bungalows?|villas?|holiday|annex(?:e|es)?|guests?|guesthouses?|cabanas?)\b/i';
+
+        $kept = array_filter($listings, function ($L) use ($alwaysBlocked, $retailOnlyBlocked, $key) {
+            $title = $L['title'] ?? '';
+            if (preg_match($alwaysBlocked, $title)) return false;
+            if ($key === 'retail shop' && preg_match($retailOnlyBlocked, $title)) return false;
+            return true;
+        });
         return array_values($kept);
     }
 
