@@ -70,8 +70,9 @@ class ListingsController extends Controller
                         return $L;
                     }, $allInArea);
 
-                    // Sort: specific-match first, then within-budget, then
-                    // above, then below, then unknown.
+                    // Sort: specific-match first, then by budget. 'within'
+                    // and 'below' (under budget) are both affordable so they
+                    // come before 'above'. 'unknown' last.
                     usort($tagged, function ($a, $b) {
                         // Specific area mention beats generic NE mention
                         $matchScore = function ($x) {
@@ -80,8 +81,9 @@ class ListingsController extends Controller
                         $ma = $matchScore($a);
                         $mb = $matchScore($b);
                         if ($ma !== $mb) return $ma <=> $mb;
-                        // Within budget rank
-                        $order = ['within' => 0, 'above' => 1, 'below' => 2, 'unknown' => 3];
+                        // Affordable first (within = perfect fit, below = headroom),
+                        // then above (out of reach), then unknown (no price).
+                        $order = ['within' => 0, 'below' => 1, 'above' => 2, 'unknown' => 3];
                         $oa = $order[$a['budget_status']] ?? 3;
                         $ob = $order[$b['budget_status']] ?? 3;
                         return $oa <=> $ob;
@@ -345,11 +347,12 @@ class ListingsController extends Controller
         if ($key === '' || $key === 'hotel') {
             return $listings;
         }
-        $blocked = '/\b(bungalow|villa|holiday|annex|room|guest|guesthouse|cabana)\b/i';
+        $blocked = '/\b(bungalows?|villas?|holiday|annex(?:e|es)?|rooms?|guests?|guesthouses?|cabanas?|apartments?|condos?|home\s*stay|homestays?|gest\s*hous)\b/i';
         $kept = array_filter($listings, fn($L) => !preg_match($blocked, $L['title'] ?? ''));
-        // If filter removes everything, return original — better to show
-        // something with honest framing than nothing at all.
-        return count($kept) > 0 ? array_values($kept) : $listings;
+        // Strict drop: if every listing is residential, return empty.
+        // Better to show a clean 'no commercial listings exist' than a wall
+        // of holiday bungalows pretending to be commercial cafe spaces.
+        return array_values($kept);
     }
 
     private function withNuwaraEliya(string $area): string
