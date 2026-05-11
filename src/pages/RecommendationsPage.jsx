@@ -1167,7 +1167,7 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
               : `${breakdown.below} ${breakdown.below === 1 ? "listing" : "listings"} under your budget — affordable`;
           return (
             <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: "rgba(21,128,61,0.06)", borderColor: "rgba(21,128,61,0.35)" }}>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} alignItems={{ xs: "flex-start", sm: "center" }}>
+              <Stack direction="row" spacing={1.25} alignItems="center">
                 <Box sx={{ width: 30, height: 30, borderRadius: "50%", bgcolor: "rgba(21,128,61,0.15)", color: "#15803d", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 700 }}>✓</Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body2" fontWeight={600} sx={{ color: "#15803d" }}>
@@ -1180,9 +1180,6 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
                     {matchSummary}{minP && maxP ? ` · prices ${fmtLkr(minP)}–${fmtLkr(maxP)}` : ""}
                   </Typography>
                 </Box>
-                <Button size="small" variant="outlined" endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />} href={mapsUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: "none", borderRadius: 999 }}>
-                  Show on Google Maps
-                </Button>
               </Stack>
             </Paper>
           );
@@ -1195,7 +1192,7 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
             : "";
           return (
             <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: "rgba(245,158,11,0.06)", borderColor: "rgba(245,158,11,0.40)" }}>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} alignItems={{ xs: "flex-start", sm: "center" }}>
+              <Stack direction="row" spacing={1.25} alignItems="center">
                 <Box sx={{ width: 30, height: 30, borderRadius: "50%", bgcolor: "rgba(245,158,11,0.15)", color: "#b45309", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 700 }}>!</Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body2" fontWeight={600} sx={{ color: "#b45309" }}>
@@ -1206,9 +1203,6 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
                     {userBudgetLkr ? ` · your filter: ${fmtLkr(userBudgetLkr)}` : ""}. You may need to expand your budget for this area.
                   </Typography>
                 </Box>
-                <Button size="small" variant="outlined" endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />} href={mapsUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: "none", borderRadius: 999 }}>
-                  Show on Google Maps
-                </Button>
               </Stack>
             </Paper>
           );
@@ -1217,46 +1211,32 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
         // RED — nothing mentions this area at all
         return (
           <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: "rgba(185,28,28,0.05)", borderColor: "rgba(185,28,28,0.30)" }}>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} alignItems={{ xs: "flex-start", sm: "center" }}>
+            <Stack direction="row" spacing={1.25} alignItems="center">
               <Box sx={{ width: 30, height: 30, borderRadius: "50%", bgcolor: "rgba(185,28,28,0.12)", color: "#b91c1c", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 700 }}>—</Box>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="body2" fontWeight={600} sx={{ color: "#b91c1c" }}>
                   No commercial {intentLabel} listings in {area} right now
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  ikman.lk has nothing whose title mentions {area} today. Try the broader Nuwara Eliya pool.
+                  See "Find available properties" below to search external platforms, or scroll down to the broader Nuwara Eliya pool.
                 </Typography>
               </Box>
-              <Stack direction="row" spacing={1}>
-                <Button size="small" variant="outlined" endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />} href={mapsUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: "none", borderRadius: 999 }}>
-                  Try Google Maps
-                </Button>
-                <Button size="small" variant="contained" endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />} href={browseUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: "none", borderRadius: 999 }}>
-                  Browse Nuwara Eliya
-                </Button>
-              </Stack>
             </Stack>
           </Paper>
         );
       })()}
 
-      <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mb: 2 }}>
-        {areaSpecific
-          ? state.payload?.area_match === false
-            ? `Filter detail: post-filtered the broad Nuwara Eliya pool (${state.payload?.total_before_budget_filter ?? 0} scraped) for titles mentioning "${area}" — found 0 within your budget. `
-            : `Filtered to listings whose title mentions "${area}". `
-          : `ikman.lk lists commercial properties at the city level, not by neighbourhood. `}
-        {state.payload?.user_budget_lkr && state.payload?.budget_filter === "tight" && (
-          <>Within ±50% of your LKR {state.payload.user_budget_lkr.toLocaleString()} {intent === "purchase" ? "purchase" : "rent"} budget. </>
-        )}
-        {state.payload?.user_budget_lkr && state.payload?.budget_filter === "wide" && (
-          <>Wider range (no exact matches at LKR {state.payload.user_budget_lkr.toLocaleString()}). </>
-        )}
-        {state.payload?.user_budget_lkr && state.payload?.budget_filter === "none" && (
-          <>No listings matched your LKR {state.payload.user_budget_lkr.toLocaleString()} budget. </>
-        )}
-        Click any card to open the original ad.
-      </Typography>
+      {/* Only show the filter-detail caption when there ARE listings to show.
+          When the section is empty/RED, the banner already says everything;
+          a second caption underneath is just noise. */}
+      {(areaSpecific ? specificListings.length > 0 : (state.payload?.listings?.length || 0) > 0) && (
+        <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mb: 2 }}>
+          {areaSpecific
+            ? `Listings whose title mentions "${area}". `
+            : `ikman.lk lists commercial properties at the city level, not by neighbourhood. `}
+          Click any card to open the original ad.
+        </Typography>
+      )}
 
       {state.loading && (
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 1.5 }}>
@@ -1268,10 +1248,13 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
         </Box>
       )}
 
-      {!state.loading && (!state.payload?.listings || state.payload.listings.length === 0) && (
+      {/* Empty state suppressed when areaSpecific — the banner above already
+          handles the RED case clearly. Only show this for non-area-specific
+          calls (which don't render banners). */}
+      {!state.loading && !areaSpecific && (!state.payload?.listings || state.payload.listings.length === 0) && (
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "rgba(0,0,0,0.02)" }}>
           <Typography variant="body2" color="text.secondary">
-            No live listings found for this area right now.{" "}
+            No live listings found right now.{" "}
             {state.payload?.search_url && (
               <Box component="a" href={state.payload.search_url} target="_blank" rel="noopener noreferrer" sx={{ color: "primary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>
                 Browse all on ikman.lk →
@@ -1281,13 +1264,6 @@ function LiveListings({ area, intent, budget, businessType, areaSpecific = false
         </Paper>
       )}
 
-      {!state.loading && areaSpecific && specificListings.length === 0 && (
-        <Box sx={{ p: 1.25, mb: 1.5, borderRadius: 2, bgcolor: "rgba(0,0,0,0.03)", border: "1px dashed", borderColor: "divider" }}>
-          <Typography variant="caption" sx={{ color: "text.secondary", fontStyle: "italic" }}>
-            No ikman.lk listings specifically mention {area} right now. See the "Find available properties" buttons below to search external platforms, or scroll down to the broader Nuwara Eliya pool for general commercial properties.
-          </Typography>
-        </Box>
-      )}
       {!state.loading && (areaSpecific ? specificListings.length > 0 : (state.payload?.listings?.length || 0) > 0) && (
         <>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 1.5 }}>
