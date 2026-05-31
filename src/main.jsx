@@ -2,6 +2,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import L from "leaflet";
+// Leaflet's stylesheet — REQUIRED. Without it, tiles render at random
+// positions producing the "partial slice of map" bug instead of a full map.
+import "leaflet/dist/leaflet.css";
 // Note: marker PNG imports handled via mergeOptions below
 import App from "./App.jsx";
 import "./styles.css";
