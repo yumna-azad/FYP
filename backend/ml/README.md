@@ -1,8 +1,22 @@
+---
+title: SmartLoc ML
+emoji: 📊
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: XGBoost + SHAP location-suitability API for Nuwara Eliya
+---
+
 # SmartLoc ML Service
 
 FastAPI wrapper around the trained XGBoost model (`smartloc_xgb_model.joblib`, R² = 0.8447).
 
-## Install
+Given a business type, budget, and land intent, it ranks the 12 commercial areas in Nuwara Eliya by suitability and returns SHAP attributions explaining each ranking.
+
+## Install (local)
 
 ```bash
 cd backend/ml
@@ -11,7 +25,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Run
+## Run (local)
 
 ```bash
 uvicorn server:app --port 8001 --reload
@@ -23,6 +37,9 @@ The React frontend expects this at `http://localhost:8001`.
 
 ### `GET /api/ml/health`
 Model liveness check.
+
+### `GET /api/ml/shap_health`
+Confirms the SHAP TreeExplainer is initialised and returns the model's base value.
 
 ### `POST /api/ml/predict`
 ```json
@@ -38,7 +55,7 @@ Returns:
 - 12 monthly suitability scores from the XGBoost model
 - Peak-season and low-season averages
 - Best/worst months
-- Top-ranked Nuwara Eliya areas for the chosen business
+- 12 ranked Nuwara Eliya areas with SHAP top drivers + additive-identity math
 
 ## How scoring works
 
@@ -53,3 +70,18 @@ Returns:
    is a composite: `0.40·ML + 0.25·budget_fit + 0.20·footfall + 0.15·(1-competition)`,
    with a +0.08 bonus if the user's preferred area matches. Price/footfall data
    comes from `Property_Listings` and `Price_Index` sheets.
+
+## Deployment to HuggingFace Spaces
+
+1. Create a new Space at https://huggingface.co/new-space
+2. SDK: **Docker**
+3. After creating, drag-and-drop these 5 files into the Space's file browser:
+   - `Dockerfile`
+   - `requirements.txt`
+   - `server.py`
+   - `features.py`
+   - `smartloc_xgb_model.joblib`
+   - `README.md` (this file — the YAML frontmatter configures the Space)
+4. Space auto-builds (~5 min). Done.
+
+Public URL: `https://<your-username>-smartloc-ml.hf.space`
