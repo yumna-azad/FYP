@@ -258,7 +258,7 @@ export default function RegisterPage() {
                       border: "1px solid rgba(185, 28, 28, 0.2)",
                     }}
                   >
-                    <Typography sx={{ fontSize: "0.875rem", color: "#b91c1c" }}>
+                    <Typography sx={{ fontSize: "0.875rem", color: isDark ? "#fca5a5" : "#b91c1c" }}>
                       {error}
                     </Typography>
                     {emailTaken && (
@@ -269,14 +269,14 @@ export default function RegisterPage() {
                           cursor: "pointer",
                           fontSize: "0.8125rem",
                           fontWeight: 500,
-                          color: "#b91c1c",
+                          color: isDark ? "#fca5a5" : "#b91c1c",
                           display: "inline-flex",
                           alignItems: "center",
                           gap: 0.5,
                           ml: 2,
                           textDecoration: "underline",
                           textUnderlineOffset: 3,
-                          "&:hover": { color: "#7f1d1d" },
+                          "&:hover": { color: isDark ? "#fecaca" : "#7f1d1d" },
                         }}
                       >
                         Sign in instead

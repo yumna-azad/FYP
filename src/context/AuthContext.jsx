@@ -52,12 +52,33 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Demo-mode auth: when the Laravel backend isn't deployed (hosted Vercel
+  // build with VITE_API_URL empty), fake a user and a token so visitors can
+  // experience the full UX — dashboard, ML recommendations, profile, PDF
+  // export — without registering for real. Persistence is localStorage only.
+  const makeDemoUser = (email, name, contactNumber) => {
+    const safeName = name || (email ? email.split("@")[0] : "Guest");
+    return {
+      id: `demo-${Date.now()}`,
+      name: safeName,
+      email: email || "guest@smartloc.demo",
+      contact_number: contactNumber || null,
+      role: "user",
+      plan: "demo",
+      is_demo: true,
+    };
+  };
+
   const login = async (email, password) => {
     if (!API_BASE) {
-      throw new Error(
-        "Login isn't available on this hosted demo — the Laravel backend isn't deployed. " +
-        "Run `php artisan serve` locally and set VITE_API_URL to enable login."
-      );
+      // Demo mode — accept any non-empty email/password
+      if (!email || !password) {
+        throw new Error("Enter your email and password to continue.");
+      }
+      const demoUser = makeDemoUser(email);
+      const demoToken = `demo-token-${Date.now()}`;
+      setAuth(demoToken, demoUser);
+      return { token: demoToken, user: demoUser };
     }
     const res = await fetch(`${API_BASE}/api/login`, {
       method: "POST",
@@ -75,10 +96,14 @@ export function AuthProvider({ children }) {
 
   const register = async (name, email, password, contactNumber) => {
     if (!API_BASE) {
-      throw new Error(
-        "Registration isn't available on this hosted demo — the Laravel backend isn't deployed. " +
-        "Run `php artisan serve` locally and set VITE_API_URL to enable signup."
-      );
+      // Demo mode — accept any non-empty fields
+      if (!email || !password || !name) {
+        throw new Error("Please fill in your name, email, and password.");
+      }
+      const demoUser = makeDemoUser(email, name, contactNumber);
+      const demoToken = `demo-token-${Date.now()}`;
+      setAuth(demoToken, demoUser);
+      return { token: demoToken, user: demoUser };
     }
     const res = await fetch(`${API_BASE}/api/register`, {
       method: "POST",

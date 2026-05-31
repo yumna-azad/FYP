@@ -276,7 +276,7 @@ export default function LoginPage() {
                 />
 
                 {error && (
-                  <Typography sx={{ fontSize: "0.875rem", color: "#b91c1c" }}>{error}</Typography>
+                  <Typography sx={{ fontSize: "0.875rem", color: isDark ? "#fca5a5" : "#b91c1c" }}>{error}</Typography>
                 )}
 
                 <Stack direction="row" spacing={3} alignItems="center" sx={{ pt: 2 }}>
