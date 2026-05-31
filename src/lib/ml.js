@@ -1,5 +1,6 @@
 // Client for the SmartLoc XGBoost inference service (backend/ml/server.py).
 // Set VITE_ML_API_URL in .env to override the default localhost endpoint.
+// In production this is set to the HuggingFace Space hosting the FastAPI service.
 
 const ML_API_URL =
   import.meta.env.VITE_ML_API_URL || "http://127.0.0.1:8001";
