@@ -7,13 +7,7 @@ import L from "leaflet";
 // Reuse a single instance instead of constructing a new one per Marker.
 const DEFAULT_ICON = new L.Icon.Default();
 
-// @ts-ignore
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
+// Icon fix is applied once in main.jsx
 
 // Module-level cache so identical pin configs reuse the same L.divIcon instance
 // across re-renders. Without this, Leaflet throws "_leaflet_events" on cleanup
