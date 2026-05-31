@@ -1,0 +1,74 @@
+# Render Blueprint — deploys both backend services in one click.
+#
+# After pushing this file to GitHub:
+#   1. Go to https://dashboard.render.com/blueprints
+#   2. Click "New Blueprint Instance"
+#   3. Select the yumna-azad/FYP repo
+#   4. Render reads this file and creates both services automatically.
+#
+# Frontend is on Vercel (already configured by vercel.json at the repo root).
+
+services:
+  # ────────────────────────────────────────────────────────────
+  # Laravel API
+  # ────────────────────────────────────────────────────────────
+  - type: web
+    name: smartloc-laravel
+    runtime: php
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: bash build.sh
+    startCommand: php -S 0.0.0.0:$PORT -t public
+    healthCheckPath: /api/social-media
+    envVars:
+      - key: APP_NAME
+        value: "SmartLoc API"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generateValue: true     # Render generates a base64 key on first deploy
+      - key: APP_URL
+        sync: false             # paste the assigned *.onrender.com URL after first deploy
+      - key: LOG_CHANNEL
+        value: stack
+      - key: LOG_LEVEL
+        value: warning
+      - key: DB_CONNECTION
+        value: sqlite           # no separate DB service; demo-friendly
+      - key: DB_DATABASE
+        value: /opt/render/project/src/backend/database/database.sqlite
+      - key: BROADCAST_DRIVER
+        value: log
+      - key: CACHE_DRIVER
+        value: file
+      - key: FILESYSTEM_DISK
+        value: local
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: SESSION_DRIVER
+        value: file
+      - key: SESSION_LIFETIME
+        value: "120"
+      - key: SANCTUM_STATEFUL_DOMAINS
+        sync: false             # paste your Vercel domain after first deploy
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false             # paste your Vercel domain after first deploy
+
+  # ────────────────────────────────────────────────────────────
+  # FastAPI ML service (XGBoost + SHAP)
+  # ────────────────────────────────────────────────────────────
+  - type: web
+    name: smartloc-ml
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend/ml
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/ml/shap_health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
