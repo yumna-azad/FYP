@@ -4,8 +4,9 @@ const TOKEN_KEY = "smartloc_token";
 const USER_KEY = "smartloc_user";
 const PROFILE_PIC_KEY = "smartloc_profile_pic";
 
-// Laravel API base. Set VITE_API_URL in .env (defaults to http://localhost:8000).
-// If the env var is empty, the code falls back to mock mode (localStorage only).
+// Laravel API base. Set VITE_API_URL in .env to enable real auth.
+// If empty (e.g. hosted demo without Laravel), login/register throw a clear
+// error instead of failing with "res is not defined".
 const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 const AuthContext = createContext(null);
@@ -52,19 +53,20 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (email, password) => {
-    if (API_BASE) {
-      const res = await fetch(`${API_BASE}/api/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || "Invalid email or password. Please register first.");
-      }
-      const data = await res.json();
-      setAuth(data.token, data.user);
-      return data;
+    if (!API_BASE) {
+      throw new Error(
+        "Login isn't available on this hosted demo — the Laravel backend isn't deployed. " +
+        "Run `php artisan serve` locally and set VITE_API_URL to enable login."
+      );
+    }
+    const res = await fetch(`${API_BASE}/api/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || "Invalid email or password. Please register first.");
     }
     const data = await res.json();
     setAuth(data.token, data.user);
@@ -72,17 +74,20 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (name, email, password, contactNumber) => {
-    if (API_BASE) {
-      const res = await fetch(`${API_BASE}/api/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({ name, email, password, contact_number: contactNumber || undefined }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || "Registration failed. Email may already be registered.");
-      }
-      throw new Error(errorData.message || emailErr || "Registration failed.");
+    if (!API_BASE) {
+      throw new Error(
+        "Registration isn't available on this hosted demo — the Laravel backend isn't deployed. " +
+        "Run `php artisan serve` locally and set VITE_API_URL to enable signup."
+      );
+    }
+    const res = await fetch(`${API_BASE}/api/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ name, email, password, contact_number: contactNumber || undefined }),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || "Registration failed. Email may already be registered.");
     }
     const data = await res.json();
     setAuth(data.token, data.user);
