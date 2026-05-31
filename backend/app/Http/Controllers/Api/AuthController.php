@@ -28,6 +28,10 @@ class AuthController extends Controller
             ]);
         }
 
+        // Track last login so admin dashboard "Last Active" column populates.
+        $user->last_active_at = now();
+        $user->save();
+
         // Create Sanctum token
         $token = $user->createToken('smartloc-api')->plainTextToken;
 
@@ -72,6 +76,32 @@ class AuthController extends Controller
                 'role' => $user->role ?? 'Location planner',
             ],
         ], 201);
+    }
+
+    /**
+     * Update the authenticated user's profile (name, contact_number).
+     * Email and password are NOT changed here.
+     */
+    public function updateProfile(Request $request)
+    {
+        $validated = $request->validate([
+            'name'           => 'sometimes|string|max:255',
+            'contact_number' => 'sometimes|nullable|string|max:32',
+        ]);
+
+        $user = $request->user();
+        $user->fill($validated);
+        $user->save();
+
+        return response()->json([
+            'user' => [
+                'id'             => $user->id,
+                'name'           => $user->name,
+                'email'          => $user->email,
+                'role'           => $user->role ?? 'Location planner',
+                'contact_number' => $user->contact_number,
+            ],
+        ]);
     }
 
     /**

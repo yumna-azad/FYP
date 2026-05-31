@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:laravel": "php backend/artisan serve --host=127.0.0.1 --port=8000",
+    "dev:ml": "cd backend/ml && python -m uvicorn server:app --host 127.0.0.1 --port 8001 --reload",
+    "db:setup": "cd backend && php artisan migrate:fresh --seed"
   },
   "dependencies": {
     "@emotion/react": "^11.13.0",

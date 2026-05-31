@@ -87,28 +87,28 @@ const defaultLocationsForMap = [
     name: "City Center",
     lat: 6.9497,
     lng: 80.7891,
-    description: "Commercial District · Score 92"
+    description: "Commercial District , Score 92"
   },
   {
     id: "2",
     name: "Gregory Lake Front",
     lat: 6.9571,
     lng: 80.7827,
-    description: "Mixed Use · Score 87"
+    description: "Mixed Use , Score 87"
   },
   {
     id: "3",
     name: "Hakgala Road",
     lat: 6.9405,
     lng: 80.808,
-    description: "Tourist Zone · Score 85"
+    description: "Tourist Zone , Score 85"
   },
   {
     id: "4",
     name: "Pedro Tea Estate Area",
     lat: 6.935,
     lng: 80.82,
-    description: "Shopping / Tourist · Score 78"
+    description: "Shopping / Tourist , Score 78"
   }
 ];
 
@@ -128,7 +128,7 @@ export default function DashboardPage() {
   const [locations, setLocations] = useState([]);
   const [businessTypeOptions, setBusinessTypeOptions] = useState(defaultBusinessTypeOptions);
 
-  // Load business types from API when connected – admin "Add Business Type" drives user dropdown
+  // Load business types from API when connected - admin "Add Business Type" drives user dropdown
   useEffect(() => {
     if (useMock) {
       setBusinessTypeOptions(defaultBusinessTypeOptions);
@@ -168,7 +168,7 @@ export default function DashboardPage() {
             name: loc.name,
             lat: parseFloat(loc.latitude) || 6.9497,
             lng: parseFloat(loc.longitude) || 80.7891,
-            description: `${loc.type || "Location"} · Score ${loc.score || 0}`
+            description: `${loc.type || "Location"} , Score ${loc.score || 0}`
           }));
           setLocations(mapLocations.length > 0 ? mapLocations : defaultLocationsForMap);
         } catch (err) {

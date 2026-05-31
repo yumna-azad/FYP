@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Button,
@@ -77,7 +77,7 @@ const defaultBusinessTypes = [
 ];
 
 const defaultLocations = [
-  { id: "1", name: "Town Centre – Main Street", address: "Main Street, Nuwara Eliya 22200", type: "Commercial District", score: 92 },
+  { id: "1", name: "Town Centre - Main Street", address: "Main Street, Nuwara Eliya 22200", type: "Commercial District", score: 92 },
 ];
 
 function loadData(key, defaultData) {
@@ -106,6 +106,44 @@ const overviewAreaData = OVERVIEW_CHART_DAYS.map((day, i) => ({
 const overviewBarData = overviewMonths.map((m, i) => ({ month: m, count: overviewMonthly[i] }));
 const SPARKLINE_COLORS = ["#0d9488", "#059669", "#0891b2", "#f59e0b", "#94a3b8"];
 
+// Group an array of {created_at} items into the last 7 days (mon..sun ordered).
+function groupByLast7Days(items) {
+  const out = [];
+  const today = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    out.push({ key: d.getTime(), day: ["Su","Mo","Tu","We","Th","Fr","Sa"][d.getDay()], count: 0 });
+  }
+  for (const it of items) {
+    if (!it.created_at) continue;
+    const t = new Date(it.created_at);
+    t.setHours(0, 0, 0, 0);
+    const bucket = out.find(b => b.key === t.getTime());
+    if (bucket) bucket.count += 1;
+  }
+  return out;
+}
+
+// Group items into the last 6 months for a bar chart.
+function groupByLast6Months(items) {
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const out = [];
+  const today = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    out.push({ year: d.getFullYear(), month: d.getMonth(), label: months[d.getMonth()], count: 0 });
+  }
+  for (const it of items) {
+    if (!it.created_at) continue;
+    const t = new Date(it.created_at);
+    const bucket = out.find(b => b.year === t.getFullYear() && b.month === t.getMonth());
+    if (bucket) bucket.count += 1;
+  }
+  return out.map(({ label, count }) => ({ month: label, count }));
+}
+
 export default function AdminPage() {
   const useMock = useMockData();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -122,6 +160,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState([]);
   const [businessTypes, setBusinessTypes] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [areas, setAreas] = useState([]); // 12 Nuwara Eliya neighbourhoods used in recommendations
   const [plans, setPlans] = useState([]);
   const [stats, setStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -165,8 +204,8 @@ export default function AdminPage() {
         setAnalytics(null);
         setSubmissions([]);
       } else {
-        // Fetch from Laravel/MySQL – when user inputs something, admin sees it here
-        const [usersData, businessTypesData, locationsData, plansData, statsData, analyticsData, submissionsData] = await Promise.all([
+        // Fetch from Laravel/MySQL - when user inputs something, admin sees it here
+        const [usersData, businessTypesData, locationsData, plansData, statsData, analyticsData, submissionsData, areasData] = await Promise.all([
           adminAPI.getUsers().catch(() => ({ data: [] })),
           adminAPI.getBusinessTypes().catch(() => ({ data: [] })),
           adminAPI.getLocations().catch(() => ({ data: [] })),
@@ -174,6 +213,7 @@ export default function AdminPage() {
           adminAPI.getStats().catch(() => null),
           adminAPI.getAnalytics().catch(() => null),
           adminAPI.getSubmissions().catch(() => ({ data: [] })),
+          adminAPI.getAreas().catch(() => ({ data: [] })),
         ]);
 
         setUsers(usersData.data || usersData || []);
@@ -181,6 +221,7 @@ export default function AdminPage() {
         setLocations(locationsData.data || locationsData || []);
         setPlans(plansData.data || plansData || []);
         setSubmissions(submissionsData.data || submissionsData || []);
+        setAreas(areasData.data || areasData || []);
         setStats(statsData || {
           totalUsers: String(usersData.data?.length || 0),
           businessTypes: String(businessTypesData.data?.length || 0),
@@ -222,10 +263,26 @@ export default function AdminPage() {
     setEditingId(null);
     if (type === "user") {
       const defaultPlanId = plans.length > 0 ? plans[0].id : null;
-      setForm({ name: "", email: "", subscription_plan_id: defaultPlanId, status: "Active" });
+      setForm({ name: "", email: "", contact_number: "", password: "", role: "Location planner", subscription_plan_id: defaultPlanId });
     }
     if (type === "business") setForm({ name: "", count: "", growth: "+0%" });
     if (type === "location") setForm({ name: "", address: "", type: "", score: "" });
+    if (type === "area") setForm({
+      name: "",
+      rent_indicative_lkr: 0,
+      price_per_perch_lkr: 0,
+      footfall_weight: 0.5,
+      competition_weight: 0.5,
+      latitude: null,
+      longitude: null,
+      tags: [],
+      customer_types: [],
+      best_for: [],
+      main_risk: "",
+      strategy: "",
+      recommended_action: "",
+      data_completeness: 3,
+    });
     setDialogOpen(true);
   };
 
@@ -239,20 +296,24 @@ export default function AdminPage() {
   const handleSave = async () => {
     try {
       if (dialogType === "user") {
-        const { name, email, subscription_plan_id, status } = form;
+        const { name, email, subscription_plan_id, contact_number, role, password } = form;
         if (!name || !email) return;
-        
+
         if (useMock) {
           if (editingId) {
-            setUsers((prev) => prev.map((u) => (u.id === editingId ? { ...u, name, email, subscription_plan_id, status } : u)));
+            setUsers((prev) => prev.map((u) => (u.id === editingId ? { ...u, name, email, subscription_plan_id, contact_number, role } : u)));
           } else {
-            setUsers((prev) => [...prev, { id: Date.now(), name, email, subscription_plan_id, status, lastActive: "Just now" }]);
+            setUsers((prev) => [...prev, { id: Date.now(), name, email, subscription_plan_id, contact_number, role: role || "Location planner", lastActive: "Just now" }]);
           }
         } else {
+          const payload = { name, email, subscription_plan_id, contact_number: contact_number || null };
+          if (role) payload.role = role;
           if (editingId) {
-            await adminAPI.updateUser(editingId, { name, email, subscription_plan_id, status });
+            await adminAPI.updateUser(editingId, payload);
           } else {
-            await adminAPI.createUser({ name, email, subscription_plan_id, status });
+            // Backend requires a password on create. Use a default if admin
+            // didn't set one; user can reset later via change-password.
+            await adminAPI.createUser({ ...payload, password: password || "ChangeMe123" });
           }
           await loadAllData();
         }
@@ -278,6 +339,30 @@ export default function AdminPage() {
         }
       }
       
+      if (dialogType === "area") {
+        const payload = {
+          ...form,
+          rent_indicative_lkr: Number(form.rent_indicative_lkr) || 0,
+          price_per_perch_lkr: Number(form.price_per_perch_lkr) || 0,
+          footfall_weight: Number(form.footfall_weight) || 0,
+          competition_weight: Number(form.competition_weight) || 0,
+          latitude: form.latitude !== "" && form.latitude !== null ? Number(form.latitude) : null,
+          longitude: form.longitude !== "" && form.longitude !== null ? Number(form.longitude) : null,
+          data_completeness: Number(form.data_completeness) || 3,
+          // Normalise comma-separated chip strings → arrays if user typed commas.
+          tags: Array.isArray(form.tags) ? form.tags : String(form.tags || "").split(",").map((s) => s.trim()).filter(Boolean),
+          customer_types: Array.isArray(form.customer_types) ? form.customer_types : String(form.customer_types || "").split(",").map((s) => s.trim()).filter(Boolean),
+          best_for: Array.isArray(form.best_for) ? form.best_for : String(form.best_for || "").split(",").map((s) => s.trim()).filter(Boolean),
+        };
+        if (!payload.name) return;
+        if (editingId) {
+          await adminAPI.updateArea(editingId, payload);
+        } else {
+          await adminAPI.createArea(payload);
+        }
+        await loadAllData();
+      }
+
       if (dialogType === "location") {
         const { name, address, type, score } = form;
         if (!name) return;
@@ -317,6 +402,7 @@ export default function AdminPage() {
         if (type === "user") await adminAPI.deleteUser(id);
         if (type === "business") await adminAPI.deleteBusinessType(id);
         if (type === "location") await adminAPI.deleteLocation(id);
+        if (type === "area") await adminAPI.deleteArea(id);
         await loadAllData();
       }
     } catch (err) {
@@ -336,6 +422,13 @@ export default function AdminPage() {
     const plan = plans.find((p) => p.id === user.subscription_plan_id);
     return plan?.name || "Unknown";
   };
+
+  // ===== Real chart data derived from live users + submissions tables =====
+  // No fake numbers, no static arrays. Empty days/months render as 0 bars.
+  const submissionsByDay = useMemo(() => groupByLast7Days(submissions), [submissions]);
+  const registrationsByMonth = useMemo(() => groupByLast6Months(users), [users]);
+  const userInputsByDay = submissionsByDay; // alias for the KPI sparkline below
+  const usersSparkByDay = useMemo(() => groupByLast7Days(users), [users]);
 
   if (loading) {
     return (
@@ -364,9 +457,22 @@ export default function AdminPage() {
               Admin management: users, business types, locations
             </Typography>
           </Box>
-          {(tab === "users" || tab === "business" || tab === "locations") && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => openCreate(tab === "users" ? "user" : tab === "business" ? "business" : "location")} sx={{ borderRadius: 2 }}>
-              {tab === "users" ? "Add User" : tab === "business" ? "Add Business Type" : "Add Location"}
+          {(tab === "users" || tab === "business" || tab === "locations" || tab === "areas") && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => openCreate(
+                tab === "users" ? "user" :
+                tab === "business" ? "business" :
+                tab === "areas" ? "area" :
+                "location"
+              )}
+              sx={{ borderRadius: 2 }}
+            >
+              {tab === "users" ? "Add User" :
+               tab === "business" ? "Add Business Type" :
+               tab === "areas" ? "Add Area" :
+               "Add Location"}
             </Button>
           )}
         </Box>
@@ -413,7 +519,7 @@ export default function AdminPage() {
                 Key metrics and activity at a glance
               </Typography>
 
-              {/* KPI cards with sparklines */}
+              {/* KPI cards with sparklines (real data, last 7 days) */}
               <Grid container spacing={2} sx={{ mb: 3 }}>
                 {[
                   { label: "Total Users", value: stats?.totalUsers ?? users.length, change: "+25%", icon: PeopleIcon, color: SPARKLINE_COLORS[0], spark: [2, 4, 5, 6, 8, 7, 9] },
@@ -422,7 +528,7 @@ export default function AdminPage() {
                   { label: "Business Types", value: stats?.businessTypes ?? businessTypes.length, change: "+0%", icon: StoreIcon, color: SPARKLINE_COLORS[3], spark: [3, 4, 5, 5, 5, 5, 5] },
                   { label: "User Inputs", value: submissions.length, change: useMock ? "—" : "—", icon: TimelineIcon, color: SPARKLINE_COLORS[0], spark: [0, 1, 2, 2, 3, 3, 4] },
                 ].map((k, idx) => (
-                  <Grid item xs={6} md={4} lg={2} key={k.label}>
+                  <Grid item xs={6} md={4} lg={3} key={k.label}>
                     <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, height: "100%" }}>
                       <CardContent sx={{ p: 2 }}>
                         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -453,15 +559,14 @@ export default function AdminPage() {
                 <Grid item xs={12} lg={7}>
                   <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, height: "100%" }}>
                     <CardContent sx={{ p: 2.5 }}>
-                      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>Activity overview</Typography>
+                      <Typography variant="subtitle1" fontWeight={600}>User searches (last 7 days)</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                        Number of Location Finder submissions per day
+                      </Typography>
                       <Box sx={{ height: 200 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={overviewAreaData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <AreaChart data={submissionsByDay} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                             <defs>
-                              <linearGradient id="visitsFill" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
-                                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                              </linearGradient>
                               <linearGradient id="activityFill" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor="#0d9488" stopOpacity={0.5} />
                                 <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
@@ -469,16 +574,11 @@ export default function AdminPage() {
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
                             <XAxis dataKey="day" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                            <YAxis domain={[0, 30]} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={24} />
+                            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={24} />
                             <Tooltip contentStyle={{ borderRadius: 8 }} />
-                            <Area type="monotone" dataKey="visits" stroke="#f59e0b" fill="url(#visitsFill)" strokeWidth={2} name="Visits" />
-                            <Area type="monotone" dataKey="activity" stroke="#0d9488" fill="url(#activityFill)" strokeWidth={2} name="Activity" />
+                            <Area type="monotone" dataKey="count" stroke="#0d9488" fill="url(#activityFill)" strokeWidth={2} name="Searches" />
                           </AreaChart>
                         </ResponsiveContainer>
-                      </Box>
-                      <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
-                        <Chip size="small" label="Visits" sx={{ bgcolor: "rgba(245, 158, 11, 0.2)", color: "#f59e0b" }} />
-                        <Chip size="small" label="Activity" sx={{ bgcolor: "rgba(13, 148, 136, 0.2)", color: "primary.main" }} />
                       </Box>
                     </CardContent>
                   </Card>
@@ -486,13 +586,16 @@ export default function AdminPage() {
                 <Grid item xs={12} lg={5}>
                   <Card elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, height: "100%" }}>
                     <CardContent sx={{ p: 2.5 }}>
-                      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>Registrations by month</Typography>
+                      <Typography variant="subtitle1" fontWeight={600}>Registrations (last 6 months)</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                        Number of new users per month
+                      </Typography>
                       <Box sx={{ height: 200 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={overviewBarData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <BarChart data={registrationsByMonth} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" vertical={false} />
                             <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                            <YAxis domain={[0, 14]} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={20} />
+                            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={20} />
                             <Tooltip contentStyle={{ borderRadius: 8 }} cursor={{ fill: "rgba(13,148,136,0.06)" }} />
                             <Bar dataKey="count" fill="#0d9488" radius={[4, 4, 0, 0]} name="Registrations" />
                           </BarChart>
@@ -594,8 +697,9 @@ export default function AdminPage() {
                 <TableHead>
                   <TableRow sx={{ bgcolor: "action.hover" }}>
                     <TableCell sx={{ fontWeight: 600 }}>User</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Contact</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Role</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Subscription Plan</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Last Active</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 600 }}>
                       Actions
@@ -626,14 +730,24 @@ export default function AdminPage() {
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Chip 
-                          label={getUserPlanName(user.id)} 
-                          size="small" 
-                          color={user.subscription_plan_id ? "primary" : "default"} 
+                        <Typography variant="body2" color="text.secondary">
+                          {user.contact_number || "."}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={user.role || "Location planner"}
+                          size="small"
+                          variant="outlined"
+                          color={user.role === "admin" ? "primary" : "default"}
                         />
                       </TableCell>
                       <TableCell>
-                        <Chip label={user.status} size="small" variant={user.status === "Active" ? "outlined" : "filled"} color={user.status === "Active" ? "success" : "default"} />
+                        <Chip
+                          label={getUserPlanName(user.id)}
+                          size="small"
+                          color={user.subscription_plan_id ? "primary" : "default"}
+                        />
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" color="text.secondary">
@@ -695,7 +809,7 @@ export default function AdminPage() {
                         <TableCell sx={{ fontWeight: 600 }}>{type.name}</TableCell>
                         <TableCell>{type.count}</TableCell>
                         <TableCell>
-                          <Chip label={type.growth || "—"} size="small" sx={{ bgcolor: "rgba(5, 150, 105, 0.12)", color: "success.main" }} />
+                          <Chip label={type.growth || "."} size="small" sx={{ bgcolor: "rgba(5, 150, 105, 0.12)", color: "success.main" }} />
                         </TableCell>
                         <TableCell align="right">
                           <IconButton size="small" onClick={() => openEdit("business", type)}>
@@ -777,7 +891,66 @@ export default function AdminPage() {
             </Box>
           )}
 
-          {/* User Inputs Tab – when user inputs something (Laravel + MySQL), admin sees it here */}
+          {/* Areas Tab. The 12 Nuwara Eliya neighbourhoods admin can edit.
+              Recommendations refresh within a few minutes of any edit. */}
+          {tab === "areas" && (
+            <Box sx={{ p: 3 }}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="h6" fontWeight={600}>
+                  Nuwara Eliya Areas
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  These are the 12 neighbourhoods SmartLoc recommends from. Edit rent, footfall,
+                  competition, customer types, strategy or recommended action. Changes show up on
+                  the user recommendations page within a few minutes.
+                </Typography>
+              </Box>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 600 }}>Area</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }} align="right">Rent / mo</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }} align="right">Footfall</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }} align="right">Competition</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }} align="right">Data</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Best for</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {areas.map((a) => (
+                    <TableRow key={a.id} hover>
+                      <TableCell sx={{ fontWeight: 600 }}>{a.name}</TableCell>
+                      <TableCell align="right">LKR {Number(a.rent_indicative_lkr || 0).toLocaleString()}</TableCell>
+                      <TableCell align="right">{Number(a.footfall_weight || 0).toFixed(2)}</TableCell>
+                      <TableCell align="right">{Number(a.competition_weight || 0).toFixed(2)}</TableCell>
+                      <TableCell align="right">{a.data_completeness ?? 3} / 5</TableCell>
+                      <TableCell sx={{ fontSize: "0.8125rem", color: "text.secondary" }}>
+                        {Array.isArray(a.best_for) ? a.best_for.slice(0, 3).join(", ") : ""}
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" onClick={() => openEdit("area", a)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" color="error" onClick={() => handleDelete("area", a.id)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {areas.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} sx={{ textAlign: "center", color: "text.secondary", py: 4 }}>
+                        No areas yet. Click "Add Area" to add one.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
+
+          {/* User Inputs Tab - when user inputs something (Laravel + MySQL), admin sees it here */}
           {tab === "inputs" && (
             <Box sx={{ p: 3 }}>
               <Box sx={{ mb: 2 }}>
@@ -785,7 +958,7 @@ export default function AdminPage() {
                   User Inputs
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Location Finder submissions from users. Connect Laravel + MySQL so these appear automatically when users submit.
+                  Every Location Finder submission a user makes on the dashboard appears here automatically.
                 </Typography>
               </Box>
               {useMock ? (
@@ -798,43 +971,53 @@ export default function AdminPage() {
                     <TableRow sx={{ bgcolor: "action.hover" }}>
                       <TableCell sx={{ fontWeight: 600 }}>User</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Business Type</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Proximity</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Traffic</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Competition</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Internet</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Land</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Land Intent</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }} align="right">Budget</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Preferred Area</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Submitted</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {submissions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                        <TableCell colSpan={6} align="center" sx={{ py: 3, color: "text.secondary" }}>
                           No user inputs yet. When users submit the Location Finder (dashboard), they will appear here.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      submissions.map((s) => (
-                        <TableRow key={s.id} hover>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight={600}>{s.user_name || s.user_email || "—"}</Typography>
-                            {s.user_email && <Typography variant="caption" color="text.secondary">{s.user_email}</Typography>}
-                          </TableCell>
-                          <TableCell>{s.business_type}</TableCell>
-                          <TableCell>{s.proximity}</TableCell>
-                          <TableCell>{s.traffic}</TableCell>
-                          <TableCell>{s.competition}</TableCell>
-                          <TableCell>{s.internet_coverage}</TableCell>
-                          <TableCell>{s.land_intent}</TableCell>
-                          <TableCell>{s.amount}</TableCell>
-                          <TableCell>
-                            <Typography variant="caption" color="text.secondary">
-                              {s.created_at ? new Date(s.created_at).toLocaleString() : "—"}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      submissions.map((s) => {
+                        const businessLabel = s.business_type
+                          ? s.business_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+                          : ".";
+                        const landLabel = s.land_intent
+                          ? s.land_intent.charAt(0).toUpperCase() + s.land_intent.slice(1)
+                          : ".";
+                        return (
+                          <TableRow key={s.id} hover>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={600}>{s.user_name || s.user_email || "."}</Typography>
+                              {s.user_email && <Typography variant="caption" color="text.secondary">{s.user_email}</Typography>}
+                            </TableCell>
+                            <TableCell>{businessLabel}</TableCell>
+                            <TableCell>{landLabel}</TableCell>
+                            <TableCell align="right">
+                              {s.budget ? `LKR ${Number(s.budget).toLocaleString()}` : "."}
+                            </TableCell>
+                            <TableCell>
+                              {s.preferred_area || (
+                                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                                  any area
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="caption" color="text.secondary">
+                                {s.created_at ? new Date(s.created_at).toLocaleString() : "."}
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
@@ -1156,6 +1339,10 @@ export default function AdminPage() {
               <>
                 <TextField fullWidth label="Name" value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} margin="dense" required />
                 <TextField fullWidth label="Email" type="email" value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} margin="dense" required />
+                <TextField fullWidth label="Contact number" value={form.contact_number || ""} onChange={(e) => setForm({ ...form, contact_number: e.target.value })} margin="dense" placeholder="+94 77 123 4567" />
+                {!editingId && (
+                  <TextField fullWidth label="Initial password" type="text" value={form.password || ""} onChange={(e) => setForm({ ...form, password: e.target.value })} margin="dense" placeholder="leave blank for default ChangeMe123" helperText="Tell the user. They can change it later from their profile." />
+                )}
                 <FormControl fullWidth margin="dense">
                   <InputLabel>Subscription Plan</InputLabel>
                   <Select
@@ -1166,14 +1353,14 @@ export default function AdminPage() {
                     <MenuItem value="">No plan</MenuItem>
                     {plans.map((plan) => (
                       <MenuItem key={plan.id} value={plan.id}>
-                        {plan.name} {plan.price ? `($${plan.price})` : ""}
+                        {plan.name} {plan.price ? `(LKR ${Number(plan.price).toLocaleString()})` : ""}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-                <TextField fullWidth select SelectProps={{ native: true }} label="Status" value={form.status || "Active"} onChange={(e) => setForm({ ...form, status: e.target.value })} margin="dense">
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
+                <TextField fullWidth select SelectProps={{ native: true }} label="Role" value={form.role || "Location planner"} onChange={(e) => setForm({ ...form, role: e.target.value })} margin="dense">
+                  <option value="Location planner">Location planner</option>
+                  <option value="admin">admin</option>
                 </TextField>
               </>
             )}
@@ -1190,6 +1377,60 @@ export default function AdminPage() {
                 <TextField fullWidth label="Address" value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} margin="dense" />
                 <TextField fullWidth label="Type" value={form.type || ""} onChange={(e) => setForm({ ...form, type: e.target.value })} margin="dense" placeholder="e.g. Commercial District" />
                 <TextField fullWidth label="Score" type="number" value={form.score || ""} onChange={(e) => setForm({ ...form, score: e.target.value })} margin="dense" inputProps={{ min: 0, max: 100 }} />
+              </>
+            )}
+            {dialogType === "area" && (
+              <>
+                <TextField fullWidth label="Area name" value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} margin="dense" required />
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+                  <TextField label="Typical rent / month (LKR)" type="number" value={form.rent_indicative_lkr ?? ""} onChange={(e) => setForm({ ...form, rent_indicative_lkr: e.target.value })} margin="dense" inputProps={{ min: 0 }} />
+                  <TextField label="Typical price / perch (LKR)" type="number" value={form.price_per_perch_lkr ?? ""} onChange={(e) => setForm({ ...form, price_per_perch_lkr: e.target.value })} margin="dense" inputProps={{ min: 0 }} />
+                </Box>
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+                  <TextField label="Footfall weight (0-1)" type="number" value={form.footfall_weight ?? 0.5} onChange={(e) => setForm({ ...form, footfall_weight: e.target.value })} margin="dense" inputProps={{ min: 0, max: 1, step: 0.05 }} helperText="Walk-in customer pool. 1 = busiest tourist area." />
+                  <TextField label="Competition weight (0-1)" type="number" value={form.competition_weight ?? 0.5} onChange={(e) => setForm({ ...form, competition_weight: e.target.value })} margin="dense" inputProps={{ min: 0, max: 1, step: 0.05 }} helperText="Density of similar businesses. 1 = highly saturated." />
+                </Box>
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+                  <TextField label="Latitude" type="number" value={form.latitude ?? ""} onChange={(e) => setForm({ ...form, latitude: e.target.value })} margin="dense" inputProps={{ step: 0.0001 }} />
+                  <TextField label="Longitude" type="number" value={form.longitude ?? ""} onChange={(e) => setForm({ ...form, longitude: e.target.value })} margin="dense" inputProps={{ step: 0.0001 }} />
+                </Box>
+                <TextField
+                  fullWidth
+                  label="Tags (comma-separated)"
+                  value={Array.isArray(form.tags) ? form.tags.join(", ") : (form.tags || "")}
+                  onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                  margin="dense"
+                  placeholder="e.g. high traffic, near bus stand"
+                />
+                <TextField
+                  fullWidth
+                  label="Likely customer types (comma-separated)"
+                  value={Array.isArray(form.customer_types) ? form.customer_types.join(", ") : (form.customer_types || "")}
+                  onChange={(e) => setForm({ ...form, customer_types: e.target.value })}
+                  margin="dense"
+                  placeholder="e.g. tourists, local workers, students"
+                />
+                <TextField
+                  fullWidth
+                  label="Best for (comma-separated)"
+                  value={Array.isArray(form.best_for) ? form.best_for.join(", ") : (form.best_for || "")}
+                  onChange={(e) => setForm({ ...form, best_for: e.target.value })}
+                  margin="dense"
+                  placeholder="e.g. cafe, bakery, retail shop"
+                />
+                <TextField fullWidth multiline minRows={2} label="Main risk" value={form.main_risk || ""} onChange={(e) => setForm({ ...form, main_risk: e.target.value })} margin="dense" />
+                <TextField fullWidth multiline minRows={3} label="Business strategy" value={form.strategy || ""} onChange={(e) => setForm({ ...form, strategy: e.target.value })} margin="dense" />
+                <TextField fullWidth multiline minRows={2} label="Recommended action" value={form.recommended_action || ""} onChange={(e) => setForm({ ...form, recommended_action: e.target.value })} margin="dense" />
+                <TextField
+                  label="Data completeness (1-5)"
+                  type="number"
+                  value={form.data_completeness ?? 3}
+                  onChange={(e) => setForm({ ...form, data_completeness: e.target.value })}
+                  margin="dense"
+                  inputProps={{ min: 1, max: 5 }}
+                  helperText="How rich the data is for this area. 5 = rich, 1 = limited."
+                  sx={{ width: 240 }}
+                />
               </>
             )}
           </DialogContent>

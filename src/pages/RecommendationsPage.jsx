@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -173,6 +173,16 @@ export default function RecommendationsPage() {
   const [compareSet, setCompareSet] = useState(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  // Per-card "Technical details" toggles (expert/professional layer).
+  // Set holds card ids that are currently expanded.
+  const [techExpanded, setTechExpanded] = useState(() => new Set());
+  // Page-level "Methodology" panel toggle (above the cards).
+  const [methodologyOpen, setMethodologyOpen] = useState(false);
+  const toggleTech = (id) => setTechExpanded((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   useEffect(() => {
     const submitted = sessionStorage.getItem(DASHBOARD_SUBMITTED_KEY);

@@ -217,7 +217,7 @@ export default function ProfilePage() {
                   </>
                 )}
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {user?.email || "—"}
+                  {user?.email || "-"}
                 </Typography>
                 <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                   <Chip size="small" label={user?.role || "Location planner"} variant="outlined" />
@@ -355,10 +355,10 @@ export default function ProfilePage() {
                     }}
                   >
                     <ListItemText
-                      primary="Gregory Lake Front – Café strip"
+                      primary="Gregory Lake Front - Cafe strip"
                       secondary={
                         <Typography variant="caption" color="text.secondary">
-                          Lakeside promenade · Evening peak traffic
+                          Lakeside promenade , Evening peak traffic
                         </Typography>
                       }
                     />
@@ -407,7 +407,7 @@ export default function ProfilePage() {
                       }
                       secondary={
                         <Typography variant="caption" color="text.secondary">
-                          Run 2 days ago · Budget: Medium · Internet: High-speed fiber
+                          Run 2 days ago , Budget: Medium , Internet: High-speed fiber
                         </Typography>
                       }
                     />

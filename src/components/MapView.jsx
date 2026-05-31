@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Fix default icon issue in many bundlers
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
+// Default Leaflet icon configuration is performed once at app startup
+// in src/main.jsx so it runs before any map component renders.
+// Reuse a single instance instead of constructing a new one per Marker.
+const DEFAULT_ICON = new L.Icon.Default();
 
 // @ts-ignore
 delete L.Icon.Default.prototype._getIconUrl;

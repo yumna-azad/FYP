@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "smartloc-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "smartloc-ml",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", "9191", "--app-dir", "backend/ml"],
+      "port": 9191
+    },
+    {
+      "name": "smartloc-laravel",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["artisan", "serve", "--host=127.0.0.1", "--port=8000"],
+      "port": 8000
+    }
+  ]
+}

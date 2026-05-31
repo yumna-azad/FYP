@@ -58,7 +58,7 @@ const mapLocations = [
     name: "Gregory Lake Front",
     lat: 6.9571,
     lng: 80.7827,
-    description: "Tourist-heavy lakeside zone, good for cafés and rentals."
+    description: "Tourist-heavy lakeside zone, good for cafes and rentals."
   },
   {
     id: "loc3",
@@ -88,7 +88,7 @@ export default function ExplorePage() {
               Filters
             </Typography>
             <TextField select label="Business type" fullWidth size="small" defaultValue="cafe">
-              <MenuItem value="cafe">Café</MenuItem>
+              <MenuItem value="cafe">Cafe</MenuItem>
               <MenuItem value="retail">Retail</MenuItem>
               <MenuItem value="clinic">Clinic</MenuItem>
               <MenuItem value="office">Office</MenuItem>
@@ -181,7 +181,7 @@ export default function ExplorePage() {
                               {loc.name}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {loc.area} · Rent: {loc.rent}
+                              {loc.area} , Rent: {loc.rent}
                             </Typography>
                           </Box>
                           <Chip
