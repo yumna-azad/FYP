@@ -2,19 +2,18 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import L from "leaflet";
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
+// Note: marker PNG imports handled via mergeOptions below
 import App from "./App.jsx";
 import "./styles.css";
 
 
 // Fix Leaflet default marker icons broken by Vite's asset bundling
+// Use CDN paths so Vite bundling doesn't interfere with icon resolution
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 // Defensive patch: Leaflet's Marker._removeIcon can throw during React
 // StrictMode's double-unmount (dev only) when this._icon has already been
