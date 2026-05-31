@@ -76,11 +76,14 @@ export default function RegisterPage() {
     },
     "& .MuiInput-input": {
       py: 1.5,
-      color: ink,
-      "&:-webkit-autofill": {
-        WebkitBoxShadow: `0 0 0 1000px ${bg} inset`,
-        WebkitTextFillColor: ink,
+      color: `${ink} !important`,
+      WebkitTextFillColor: `${ink} !important`,
+      caretColor: ink,
+      "&:-webkit-autofill, &:-webkit-autofill:hover, &:-webkit-autofill:focus, &:-webkit-autofill:active": {
+        WebkitBoxShadow: `0 0 0 1000px ${bg} inset !important`,
+        WebkitTextFillColor: `${ink} !important`,
         caretColor: ink,
+        transition: "background-color 9999s ease-in-out 0s",
       },
     },
   };
