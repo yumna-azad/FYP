@@ -55,6 +55,37 @@ function FlyToSelected({ center, zoom }) {
   return null;
 }
 
+// Fixes Leaflet's "tiles only fill part of the container" bug.
+// Leaflet captures container size at mount; if the layout hasn't finished
+// (route transition, theme switch, sidebar collapse, etc.) it sizes wrong.
+// We call invalidateSize() after mount + on any container resize.
+function InvalidateOnResize() {
+  const map = useMap();
+  useEffect(() => {
+    // Multiple staggered calls cover slow layout passes (fonts, fly-in
+    // animations, MUI Grid breakpoint shifts).
+    const timers = [50, 250, 600, 1200].map((ms) =>
+      setTimeout(() => map.invalidateSize({ animate: false }), ms)
+    );
+
+    const container = map.getContainer();
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize({ animate: false });
+    });
+    observer.observe(container);
+
+    const onWinResize = () => map.invalidateSize({ animate: false });
+    window.addEventListener("resize", onWinResize);
+
+    return () => {
+      timers.forEach(clearTimeout);
+      observer.disconnect();
+      window.removeEventListener("resize", onWinResize);
+    };
+  }, [map]);
+  return null;
+}
+
 /**
  * Props:
  *   locations: [{ id, name, lat, lng, description, scoreColor?, rank?, renderPopup? }]
@@ -95,6 +126,7 @@ export default function MapView({ locations = [], center, zoom = defaultZoom, se
         attribution=""
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      <InvalidateOnResize />
       {center && <FlyToSelected center={center} zoom={zoom} />}
 
       {locations.map((loc) => {
