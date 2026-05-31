@@ -252,17 +252,7 @@ export function ThemeProvider({ children }) {
               },
             },
           },
-          MuiChip: {
-            styleOverrides: {
-              root: {
-                ...(mode === "dark" && {
-                  backgroundColor: "rgba(148, 163, 184, 0.1)",
-                  border: "1px solid rgba(148, 163, 184, 0.2)",
-                }),
-              },
-            },
-          },
-          MuiTextField: {
+            MuiTextField: {
             styleOverrides: {
               root: {
                 "& .MuiOutlinedInput-root": {
