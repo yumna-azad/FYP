@@ -16,6 +16,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import SendIcon from "@mui/icons-material/Send";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import { sendToGemini, hasGeminiKey } from "../lib/gemini.js";
+import { answerLocally } from "../lib/localAssistant.js";
 
 const INITIAL_MESSAGE = {
   from: "bot",
@@ -29,32 +30,12 @@ const SUGGESTED_PROMPTS = [
   "What month is best to open?",
 ];
 
+// Smart offline assistant grounded in the real 12-area dataset and seasonality
+// (see src/lib/localAssistant.js). Used when no Gemini key is set, and as a
+// graceful degrade when the Gemini API is unavailable (dead key / `limit: 0`
+// regional quota). Gives genuine area/budget/timing/risk answers, not a stub.
 function fallbackReply(userMsg) {
-  // Used only when VITE_GEMINI_API_KEY is not set — keeps the chatbot usable
-  // during dev without burning a free-tier key, and as a graceful degrade if
-  // Gemini errors out.
-  const greetingRe = /^(hi|hello|hey|hiya|yo|howdy|good\s*(morning|afternoon|evening)|hola|aloha|sup)\b/i;
-  const thanksRe = /^(thanks|thank you|ty|thx|cheers|appreciate it)\b/i;
-  const byeRe = /^(bye|goodbye|see ya|later|cya|ok bye)\b/i;
-  const helpRe = /\b(help|what can you do|capabilities|menu|options)\b/i;
-
-  if (greetingRe.test(userMsg))
-    return "Hey! Happy to help. You can ask me about areas, budget fit, best months to open, or risks to watch out for.";
-  if (thanksRe.test(userMsg))
-    return "Anytime. Let me know if you want to dig into a specific area.";
-  if (byeRe.test(userMsg))
-    return "Take care! Come back when you want to run more recommendations.";
-  if (helpRe.test(userMsg))
-    return "I can help with: • which area suits your business • best time to open • budget and competition • risks to consider. Ask away.";
-  if (userMsg.includes("competition"))
-    return "Low-competition options include Glencairn, Ambewela and the Tea estates belt. Town Centre is the most saturated.";
-  if (userMsg.includes("budget") || userMsg.includes("cheap"))
-    return "For smaller budgets look at Nanu Oya, Ambewela, Glencairn or the Tea estates belt. Town Centre and Gregory Lake Front are premium.";
-  if (userMsg.includes("tourist") || userMsg.includes("visibility"))
-    return "Gregory Lake Front, Town Centre and Hakgala Road have the strongest tourist visibility.";
-  if (userMsg.includes("month") || userMsg.includes("time") || userMsg.includes("season"))
-    return "Peak months are April, August and December. Monsoon / slower months are May, June, July, October and November.";
-  return "Got it. I can help you think through area, budget, timing and risks — try one of the suggested questions, or ask in your own words.";
+  return answerLocally(userMsg);
 }
 
 export default function Chatbot() {
@@ -63,6 +44,9 @@ export default function Chatbot() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scrollerRef = useRef(null);
+  // Once Gemini fails (dead key / regional `limit: 0`), stop calling it for the
+  // rest of the session so every later reply is instant from the local assistant.
+  const geminiLiveRef = useRef(hasGeminiKey());
 
   useEffect(() => {
     scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
@@ -77,18 +61,20 @@ export default function Chatbot() {
 
     try {
       let reply;
-      if (hasGeminiKey()) {
-        reply = await sendToGemini(text);
+      if (geminiLiveRef.current) {
+        try {
+          reply = await sendToGemini(text);
+        } catch (err) {
+          // Gemini unreachable (dead key / regional limit:0) — disable it for
+          // the session and answer locally instead.
+          console.warn("Gemini unavailable, switching to local assistant:", err);
+          geminiLiveRef.current = false;
+          reply = fallbackReply(text);
+        }
       } else {
-        reply = fallbackReply(text.toLowerCase());
+        reply = fallbackReply(text);
       }
       setMessages((prev) => [...prev, { from: "bot", text: reply }]);
-    } catch (err) {
-      console.warn("Gemini error, falling back to canned reply:", err);
-      setMessages((prev) => [
-        ...prev,
-        { from: "bot", text: fallbackReply(text.toLowerCase()) },
-      ]);
     } finally {
       setBusy(false);
     }
@@ -155,7 +141,7 @@ export default function Chatbot() {
                   SmartLoc Business Assistant
                 </Typography>
                 <Typography variant="caption" sx={{ opacity: 0.85 }}>
-                  {hasGeminiKey() ? "Powered by Gemini" : "Offline mode"}
+                  Nuwara Eliya location advisor
                 </Typography>
               </Box>
             </Stack>

@@ -436,6 +436,18 @@ def _rank_areas(business_type_key: str, land_intent: str, amount: float,
 
 # ----------------------------- endpoints -----------------------------
 
+@app.get("/")
+def root():
+    """Friendly landing response so the root URL doesn't look like a 404.
+    This is an API service — the real work happens at the /api/ml/* routes."""
+    return {
+        "service": "SmartLoc ML API",
+        "status": "ok",
+        "model": "XGBoost (R²=0.8447)",
+        "endpoints": ["/api/ml/health", "/api/ml/predict", "/api/ml/shap_health"],
+    }
+
+
 @app.get("/api/ml/health")
 def health():
     try:
