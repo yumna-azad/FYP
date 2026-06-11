@@ -159,6 +159,37 @@ export function answerLocally(rawText) {
   if (/\b(help|what can you do|capabilities|menu|options)\b/.test(msg))
     return "I can help with:\n• Which area suits your business type\n• Affordable vs. premium areas\n• Areas with low competition\n• Best month to open\n• Risks to watch\nJust ask in your own words.";
 
+  // ── General "about the app" / how-to / navigation questions ──
+  // These work from any page (home, dashboard, etc.), not just area queries.
+
+  // What is SmartLoc / what does this app do
+  if (/\bwhat('?s| is| does)?\b.*\b(smartloc|this app|this site|this|the app|the system|it)\b.*\b(do|for|about)\b/.test(msg)
+      || /^(what is smartloc|what is this|about smartloc|tell me about (this|smartloc|the app|the system))/.test(msg))
+    return "SmartLoc helps you pick the best place in Nuwara Eliya for your business. You tell it your business type and budget, and it ranks all 12 areas from most to least suitable — with the reasons behind each score (budget fit, walk-in customers, competition, and seasonal demand).";
+
+  // How does it work / how do you decide / accuracy
+  if (/\bhow\b.*\b(work|works|decide|recommend|rank|score|figure|know|accurate|reliable)\b/.test(msg)
+      || /\b(methodology|how is the score|how are scores)\b/.test(msg))
+    return "It's powered by a model trained on real Nuwara Eliya data — property prices, tourist arrivals, climate, and competition. For each area it weighs your budget fit, the local walk-in customer flow, competition, and the season, then produces a suitability score out of 100 with the top factors that drove it up or down.";
+
+  // How do I use it / where do I get recommendations / getting started
+  if (/\bhow (do|to|can)\b.*\b(use|start|get|run|begin)\b/.test(msg)
+      || /\b(where|how) (do|can) i\b.*\b(recommend|start|begin|result|score)\b/.test(msg)
+      || /\b(get started|getting started|how to use|use this)\b/.test(msg))
+    return "Easy: go to the Dashboard, choose your business type (cafe, restaurant, retail, wellness, or hotel), pick rent or purchase, enter your budget, and hit \"Generate Recommendations\". You'll get all 12 areas ranked, each with a score and a \"Why this place\" breakdown.";
+
+  // What business types are supported
+  if (/\b(what|which|supported)\b.*\b(business type|business|types|can i (open|start|run))\b/.test(msg))
+    return "SmartLoc covers five business types: cafe, restaurant, retail shop, wellness center, and hotel. Pick one on the Dashboard to get a ranking tailored to it.";
+
+  // How many / which areas
+  if (/\b(how many|what|which|list|all)\b.*\bareas?\b/.test(msg))
+    return "It ranks 12 areas: Town Centre / Main Street, Gregory Lake Front, Hakgala Road, Pedro / Hill Club Area, Nanu Oya, Ambewela, Kandapola, Glencairn, Hawa Eliya, Lover's Leap, Seetha Eliya, and the Tea estates belt.";
+
+  // Data / sources
+  if (/\b(what|which|where).*\b(data|dataset|sources?)\b/.test(msg) || /\bhow much data\b/.test(msg))
+    return "The recommendations are built on verified Nuwara Eliya data — property and rental prices, tourist arrival patterns, climate/seasonality, and the density of similar businesses in each area. That's what lets it compare areas fairly instead of guessing.";
+
   const type = detectType(msg);
   const area = detectArea(msg);
   const budget = detectBudget(msg);
