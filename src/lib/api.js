@@ -95,6 +95,16 @@ export const adminAPI = {
 };
 
 /**
+ * Public (non-admin) read-only endpoints. The Location Finder dashboard uses these
+ * so any logged-in user sees the live business types and map locations the admin
+ * maintains — the /api/admin/* equivalents 403 for non-admins.
+ */
+export const publicAPI = {
+  getBusinessTypes: () => apiRequest("/api/business-types"),
+  getLocations: () => apiRequest("/api/locations"),
+};
+
+/**
  * Submit user's Location Finder input to Laravel/MySQL so admin side shows it automatically
  */
 export async function submitLocationFinder(payload) {

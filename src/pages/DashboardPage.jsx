@@ -25,7 +25,7 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import MapView from "../components/MapView.jsx";
-import { adminAPI, useMockData, submitLocationFinder } from "../lib/api.js";
+import { publicAPI, useMockData, submitLocationFinder } from "../lib/api.js";
 
 // Fallback when no API or API returns empty (admin "Add Business Type" feeds the list when API is connected)
 const defaultBusinessTypeOptions = [
@@ -137,7 +137,7 @@ export default function DashboardPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await adminAPI.getBusinessTypes().catch(() => ({ data: [] }));
+        const res = await publicAPI.getBusinessTypes().catch(() => ({ data: [] }));
         const list = res?.data ?? res ?? [];
         if (cancelled) return;
         const opts = Array.isArray(list) && list.length > 0
@@ -161,7 +161,7 @@ export default function DashboardPage() {
         setLocations(defaultLocationsForMap);
       } else {
         try {
-          const locationsData = await adminAPI.getLocations().catch(() => ({ data: [] }));
+          const locationsData = await publicAPI.getLocations().catch(() => ({ data: [] }));
           const locs = locationsData.data || locationsData || [];
           const mapLocations = locs.map((loc) => ({
             id: String(loc.id),

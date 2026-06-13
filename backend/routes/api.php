@@ -34,6 +34,13 @@ Route::get('/social-media', [SocialMediaController::class, 'getSocialMedia']);
 // for each Nuwara Eliya area on demand.
 Route::get('/listings', [ListingsController::class, 'index']);
 
+// Public read-only catalogues — the Location Finder dashboard needs these so any
+// logged-in user (not just admins) sees the business types and map locations the
+// admin maintains. Same controller reads as the admin routes, but without the
+// admin gate. Writes stay admin-only below.
+Route::get('/business-types', [AdminController::class, 'getBusinessTypes']);
+Route::get('/locations', [AdminController::class, 'getLocations']);
+
 // Admin: Update social media links
 Route::middleware(['auth:sanctum', 'admin'])->put('/admin/social-media', [SocialMediaController::class, 'updateSocialMedia']);
 
